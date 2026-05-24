@@ -10,12 +10,14 @@ import {
   faCreditCard,
   faUser,
   faBox,
+  faGift,
   faHeadset,
   faGauge,
   faTag,
   faGear,
   faClipboardList,
   faUsers,
+  faChartPie,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -41,6 +43,7 @@ const customerLinks: NavLink[] = [
   { href: "/checkout", label: "Checkout", icon: faCreditCard },
   { href: "/account", label: "Account", icon: faUser },
   { href: "/orders", label: "Orders", icon: faBox },
+  { href: "/rewards", label: "Rewards", icon: faGift },
 ];
 
 const customerApplicationLink: NavLink = {
@@ -60,10 +63,12 @@ const agentShoppingLinks: NavLink[] = [
   { href: "/cart", label: "My Cart", icon: faCartShopping },
   { href: "/checkout", label: "Checkout", icon: faCreditCard },
   { href: "/orders", label: "My Orders", icon: faBox },
+  { href: "/rewards", label: "My Rewards", icon: faGift },
 ];
 
 const adminLinks: NavLink[] = [
   { href: "/admin", label: "Dashboard", icon: faGauge },
+  { href: "/admin/sales", label: "Sales Rewards", icon: faChartPie },
   { href: "/admin/products", label: "Products", icon: faTag },
   { href: "/admin/options", label: "Options", icon: faGear },
   { href: "/admin/orders", label: "Orders", icon: faClipboardList },
