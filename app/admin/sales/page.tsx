@@ -2,55 +2,85 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import AppShell from "@/components/AppShell";
 import { supabase } from "@/lib/supabase";
 import type { Profile, ToastItem } from "@/lib/types";
 
+type RangeFilter = "7" | "30" | "90" | "all";
+
 type RewardProgress = {
   user_id: string;
   full_name: string | null;
-  total_delivered_spend: number;
+  total_delivered_spend: number | null;
   highest_goal: number | null;
-  progress_percent: number;
-  reward_status: string;
+  progress_percent: number | null;
+  reward_status: string | null;
   next_reward_target: number | null;
-};
-
-type RewardTier = {
-  code: string;
-  name: string;
-  minimum_spend: number;
-  discount_percent: number;
-  max_discount: number;
-  minimum_order_amount: number;
-  validity_days: number;
-  sort_order: number;
 };
 
 type CustomerCoupon = {
   id: string;
   user_id: string;
-  tier_code: string;
   status: "available" | "used" | "expired" | "cancelled";
-  discount_percent: number;
   expires_at: string;
 };
 
-type CustomerRewardRow = RewardProgress & {
-  total_coupons: number;
-  available_coupons: number;
+type SalesProductRelation =
+  | { name: string | null }
+  | { name: string | null }[]
+  | null;
+
+type SalesOrderItem = {
+  quantity: number | null;
+  price: number | null;
+  option_quantity: number | null;
+  products: SalesProductRelation;
 };
 
-export default function AdminSalesRewardsPage() {
+type SalesOrder = {
+  id: string;
+  user_id: string | null;
+  status: string | null;
+  total_amount: number | null;
+  subtotal: number | null;
+  discount_amount: number | null;
+  payment_method: string | null;
+  agent_id: string | null;
+  agent_name: string | null;
+  agent_referral_code: string | null;
+  created_at: string;
+  order_items: SalesOrderItem[] | null;
+};
+
+type TrendRow = { label: string; revenue: number; orders: number };
+type NamedValue = { name: string; value: number };
+type AgentRow = { name: string; revenue: number; orders: number };
+type ProductRow = { name: string; revenue: number; units: number };
+
+const chartColors = ["#7c3aed", "#18181b", "#16a34a", "#f59e0b", "#dc2626", "#2563eb"];
+
+export default function AdminSalesPage() {
   const [adminProfile, setAdminProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState("");
-  const [progressRows, setProgressRows] = useState<RewardProgress[]>([]);
-  const [tiers, setTiers] = useState<RewardTier[]>([]);
+  const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [rewardProgress, setRewardProgress] = useState<RewardProgress[]>([]);
   const [coupons, setCoupons] = useState<CustomerCoupon[]>([]);
+  const [range, setRange] = useState<RangeFilter>("30");
   const [search, setSearch] = useState("");
-  const [progressFilter, setProgressFilter] = useState<
-    "all" | "vip" | "qualified" | "building"
-  >("all");
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -62,13 +92,13 @@ export default function AdminSalesRewardsPage() {
     }, 3000);
   };
 
-  const formatUSD = (value: number | null | undefined) =>
+  const formatUSD = (value: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
     }).format(Number(value || 0));
 
-  const loadSalesRewards = async () => {
+  const loadSales = async () => {
     setLoading(true);
 
     const {
@@ -104,42 +134,40 @@ export default function AdminSalesRewardsPage() {
       return;
     }
 
-    const [progressResult, tiersResult, couponsResult] = await Promise.all([
+    const [ordersResult, progressResult, couponsResult] = await Promise.all([
+      supabase
+        .from("orders")
+        .select(
+          "id, user_id, status, total_amount, subtotal, discount_amount, payment_method, agent_id, agent_name, agent_referral_code, created_at, order_items(quantity, price, option_quantity, products(name))"
+        )
+        .order("created_at", { ascending: false }),
       supabase
         .from("customer_reward_progress")
         .select("*")
-        .order("progress_percent", { ascending: false })
-        .order("total_delivered_spend", { ascending: false }),
-      supabase
-        .from("reward_tiers")
-        .select(
-          "code, name, minimum_spend, discount_percent, max_discount, minimum_order_amount, validity_days, sort_order"
-        )
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true }),
+        .order("progress_percent", { ascending: false }),
       supabase
         .from("customer_coupons")
-        .select("id, user_id, tier_code, status, discount_percent, expires_at")
-        .order("issued_at", { ascending: false }),
+        .select("id, user_id, status, expires_at")
+        .order("expires_at", { ascending: true }),
     ]);
 
-    if (progressResult.error) {
-      addToast("Unable to load customer reward progress", "error");
-      console.error(progressResult.error);
+    if (ordersResult.error) {
+      addToast("Unable to load sales orders", "error");
+      console.error("Sales orders load error:", ordersResult.error);
     } else {
-      setProgressRows((progressResult.data || []) as RewardProgress[]);
+      setOrders((ordersResult.data || []) as unknown as SalesOrder[]);
     }
 
-    if (tiersResult.error) {
-      addToast("Unable to load reward tiers", "error");
-      console.error(tiersResult.error);
+    if (progressResult.error) {
+      addToast("Unable to load reward progress", "error");
+      console.error("Reward progress load error:", progressResult.error);
     } else {
-      setTiers((tiersResult.data || []) as RewardTier[]);
+      setRewardProgress((progressResult.data || []) as RewardProgress[]);
     }
 
     if (couponsResult.error) {
-      addToast("Unable to load customer coupons", "error");
-      console.error(couponsResult.error);
+      addToast("Unable to load coupons", "error");
+      console.error("Coupons load error:", couponsResult.error);
     } else {
       setCoupons((couponsResult.data || []) as CustomerCoupon[]);
     }
@@ -148,111 +176,220 @@ export default function AdminSalesRewardsPage() {
   };
 
   useEffect(() => {
-    loadSalesRewards();
+    loadSales();
   }, []);
 
-  const highestGoal = Number(tiers[tiers.length - 1]?.minimum_spend || 2000);
-  const firstRewardGoal = Number(tiers[0]?.minimum_spend || 1000);
+  const filteredOrders = useMemo(() => {
+    if (range === "all") return orders;
 
-  const rewardRows = useMemo<CustomerRewardRow[]>(() => {
-    return progressRows.map((row) => {
-      const customerCoupons = coupons.filter(
-        (coupon) => coupon.user_id === row.user_id
-      );
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (Number(range) - 1));
 
-      const availableCoupons = customerCoupons.filter(
-        (coupon) =>
-          coupon.status === "available" &&
-          new Date(coupon.expires_at).getTime() > Date.now()
-      ).length;
+    return orders.filter((order) => new Date(order.created_at) >= start);
+  }, [orders, range]);
 
-      return {
-        ...row,
-        total_coupons: customerCoupons.length,
-        available_coupons: availableCoupons,
-      };
+  const deliveredOrders = useMemo(
+    () => filteredOrders.filter((order) => order.status === "delivered"),
+    [filteredOrders]
+  );
+
+  const completedRevenue = useMemo(
+    () =>
+      deliveredOrders.reduce(
+        (total, order) => total + Number(order.total_amount || 0),
+        0
+      ),
+    [deliveredOrders]
+  );
+
+  const grossBeforeDiscount = useMemo(
+    () =>
+      deliveredOrders.reduce(
+        (total, order) =>
+          total + Number(order.subtotal ?? order.total_amount ?? 0),
+        0
+      ),
+    [deliveredOrders]
+  );
+
+  const discountsGranted = useMemo(
+    () =>
+      deliveredOrders.reduce(
+        (total, order) => total + Number(order.discount_amount || 0),
+        0
+      ),
+    [deliveredOrders]
+  );
+
+  const agentAttributedRevenue = useMemo(
+    () =>
+      deliveredOrders
+        .filter((order) => order.agent_id)
+        .reduce((total, order) => total + Number(order.total_amount || 0), 0),
+    [deliveredOrders]
+  );
+
+  const averageOrderValue =
+    deliveredOrders.length > 0 ? completedRevenue / deliveredOrders.length : 0;
+
+  const agentRevenuePercent =
+    completedRevenue > 0 ? (agentAttributedRevenue / completedRevenue) * 100 : 0;
+
+  const dailyTrend = useMemo<TrendRow[]>(() => {
+    const days = range === "7" ? 7 : range === "30" ? 30 : range === "90" ? 90 : 30;
+    const includeAll = range === "all";
+    const start = new Date();
+
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (days - 1));
+
+    const grouped = new Map<string, TrendRow>();
+
+    if (!includeAll) {
+      for (let index = 0; index < days; index += 1) {
+        const day = new Date(start);
+        day.setDate(start.getDate() + index);
+        const key = day.toISOString().slice(0, 10);
+
+        grouped.set(key, {
+          label: day.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          revenue: 0,
+          orders: 0,
+        });
+      }
+    }
+
+    deliveredOrders.forEach((order) => {
+      const date = new Date(order.created_at);
+      const key = date.toISOString().slice(0, 10);
+      const current =
+        grouped.get(key) || {
+          label: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          revenue: 0,
+          orders: 0,
+        };
+
+      current.revenue += Number(order.total_amount || 0);
+      current.orders += 1;
+      grouped.set(key, current);
     });
-  }, [progressRows, coupons]);
 
-  const filteredRows = useMemo(() => {
+    return Array.from(grouped.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([, value]) => ({
+        ...value,
+        revenue: Number(value.revenue.toFixed(2)),
+      }));
+  }, [deliveredOrders, range]);
+
+  const statusData = useMemo<NamedValue[]>(() => {
+    const grouped = new Map<string, number>();
+
+    filteredOrders.forEach((order) => {
+      const status = order.status || "unknown";
+      grouped.set(status, (grouped.get(status) || 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([name, value]) => ({
+      name: titleCase(name),
+      value,
+    }));
+  }, [filteredOrders]);
+
+  const paymentData = useMemo<NamedValue[]>(() => {
+    const grouped = new Map<string, number>();
+
+    deliveredOrders.forEach((order) => {
+      const method = order.payment_method || "Unspecified";
+      grouped.set(method, (grouped.get(method) || 0) + Number(order.total_amount || 0));
+    });
+
+    return Array.from(grouped.entries())
+      .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
+      .sort((left, right) => right.value - left.value);
+  }, [deliveredOrders]);
+
+  const topAgents = useMemo<AgentRow[]>(() => {
+    const grouped = new Map<string, AgentRow>();
+
+    deliveredOrders
+      .filter((order) => order.agent_id)
+      .forEach((order) => {
+        const key = order.agent_id as string;
+        const current = grouped.get(key) || {
+          name: order.agent_name || "Agent",
+          revenue: 0,
+          orders: 0,
+        };
+
+        current.revenue += Number(order.total_amount || 0);
+        current.orders += 1;
+        grouped.set(key, current);
+      });
+
+    return Array.from(grouped.values())
+      .map((agent) => ({
+        ...agent,
+        revenue: Number(agent.revenue.toFixed(2)),
+      }))
+      .sort((left, right) => right.revenue - left.revenue)
+      .slice(0, 6);
+  }, [deliveredOrders]);
+
+  const topProducts = useMemo<ProductRow[]>(() => {
+    const grouped = new Map<string, ProductRow>();
+
+    deliveredOrders.forEach((order) => {
+      (order.order_items || []).forEach((item) => {
+        const relation = item.products;
+        const product = Array.isArray(relation) ? relation[0] : relation;
+        const name = product?.name || "Product";
+        const units = Number(item.quantity || 0) * Number(item.option_quantity || 1);
+        const revenue = Number(item.quantity || 0) * Number(item.price || 0);
+        const current = grouped.get(name) || { name, units: 0, revenue: 0 };
+
+        current.units += units;
+        current.revenue += revenue;
+        grouped.set(name, current);
+      });
+    });
+
+    return Array.from(grouped.values())
+      .map((product) => ({
+        ...product,
+        revenue: Number(product.revenue.toFixed(2)),
+      }))
+      .sort((left, right) => right.revenue - left.revenue)
+      .slice(0, 6);
+  }, [deliveredOrders]);
+
+  const vipCustomers = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return rewardRows.filter((customer) => {
-      const matchesSearch =
-        !query ||
-        (customer.full_name || "").toLowerCase().includes(query) ||
-        customer.reward_status.toLowerCase().includes(query);
+    return rewardProgress
+      .filter((row) => Number(row.progress_percent || 0) >= 100)
+      .filter(
+        (row) => !query || (row.full_name || "").toLowerCase().includes(query)
+      )
+      .slice(0, 10);
+  }, [rewardProgress, search]);
 
-      const spending = Number(customer.total_delivered_spend || 0);
-      const progress = Number(customer.progress_percent || 0);
-
-      const matchesFilter =
-        progressFilter === "all" ||
-        (progressFilter === "vip" && progress >= 100) ||
-        (progressFilter === "qualified" &&
-          spending >= firstRewardGoal &&
-          progress < 100) ||
-        (progressFilter === "building" && spending < firstRewardGoal);
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [rewardRows, search, progressFilter, firstRewardGoal]);
-
-  const summary = useMemo(() => {
-    const deliveredRevenue = rewardRows.reduce(
-      (total, customer) =>
-        total + Number(customer.total_delivered_spend || 0),
-      0
-    );
-
-    const vipCustomers = rewardRows.filter(
-      (customer) => Number(customer.progress_percent || 0) >= 100
-    ).length;
-
-    const qualifiedCustomers = rewardRows.filter(
-      (customer) =>
-        Number(customer.total_delivered_spend || 0) >= firstRewardGoal
-    ).length;
-
-    const availableCoupons = coupons.filter(
-      (coupon) =>
-        coupon.status === "available" &&
-        new Date(coupon.expires_at).getTime() > Date.now()
-    ).length;
-
-    return {
-      customers: rewardRows.length,
-      deliveredRevenue,
-      vipCustomers,
-      qualifiedCustomers,
-      availableCoupons,
-    };
-  }, [rewardRows, coupons, firstRewardGoal]);
-
-  const segments = useMemo(() => {
-    const building = rewardRows.filter(
-      (customer) => Number(customer.total_delivered_spend || 0) < firstRewardGoal
-    ).length;
-    const reward30 = rewardRows.filter(
-      (customer) =>
-        Number(customer.total_delivered_spend || 0) >= firstRewardGoal &&
-        Number(customer.progress_percent || 0) < 100
-    ).length;
-    const vip = rewardRows.filter(
-      (customer) => Number(customer.progress_percent || 0) >= 100
-    ).length;
-    const max = Math.max(building, reward30, vip, 1);
-
-    return [
-      { label: "Building Rewards", value: building, width: (building / max) * 100 },
-      { label: "30% Qualified", value: reward30, width: (reward30 / max) * 100 },
-      { label: "VIP / 100%", value: vip, width: (vip / max) * 100 },
-    ];
-  }, [rewardRows, firstRewardGoal]);
+  const availableCoupons = coupons.filter(
+    (coupon) =>
+      coupon.status === "available" &&
+      new Date(coupon.expires_at).getTime() > Date.now()
+  ).length;
 
   if (loading) {
     return (
-      <AppShell title="Sales Rewards" toasts={toasts}>
+      <AppShell title="Sales Analytics" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
         </div>
@@ -262,11 +399,11 @@ export default function AdminSalesRewardsPage() {
 
   if (!adminProfile) {
     return (
-      <AppShell title="Sales Rewards" toasts={toasts}>
+      <AppShell title="Sales Analytics" toasts={toasts}>
         <AccessCard
           label="Login required"
           title="Admin Login"
-          body="Please log in with your admin account to view sales rewards."
+          body="Please log in with your admin account to view sales analytics."
           href="/login?redirect=/admin/sales"
           button="Login as Admin"
         />
@@ -276,7 +413,7 @@ export default function AdminSalesRewardsPage() {
 
   if (adminProfile.role !== "admin") {
     return (
-      <AppShell title="Sales Rewards" toasts={toasts}>
+      <AppShell title="Sales Analytics" toasts={toasts}>
         <AccessCard
           label="Access denied"
           title="Admin Only"
@@ -293,82 +430,195 @@ export default function AdminSalesRewardsPage() {
 
   return (
     <AppShell
-      title="Sales Rewards"
+      title="Sales Analytics"
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Search customer or reward status..."
+      searchPlaceholder="Search VIP customer..."
       toasts={toasts}
     >
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+        <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
-              Sales Analytics
+              Admin Intelligence
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
-              Customer Rewards
+              Sales Analytics
             </h1>
-            <p className="mt-3 max-w-2xl text-[#725f4d] dark:text-gray-400">
-              Track delivered customer spending, coupon eligibility, and customers
-              who have reached the 100% VIP milestone.
+            <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
+              Delivered revenue, customer rewards, attributed agent sales, product
+              performance, payment mix, and order workflow monitoring.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
+            {(["7", "30", "90", "all"] as RangeFilter[]).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setRange(value)}
+                className={`rounded-full px-4 py-3 text-xs font-black uppercase tracking-[0.15em] transition ${
+                  range === value
+                    ? "bg-violet-600 text-white"
+                    : "border border-[#cdbba7] bg-white hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
+                }`}
+              >
+                {value === "all" ? "All Time" : `${value} Days`}
+              </button>
+            ))}
+
             <button
               type="button"
-              onClick={loadSalesRewards}
-              className="rounded-full border border-[#cdbba7] bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
+              onClick={loadSales}
+              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
             >
               Refresh
             </button>
-            <Link
-              href="/admin/orders"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
-            >
-              View Orders
-            </Link>
           </div>
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Reward Customers" value={summary.customers.toString()} />
-        <StatCard label="Delivered Revenue" value={formatUSD(summary.deliveredRevenue)} />
-        <StatCard label="Reward Qualified" value={summary.qualifiedCustomers.toString()} />
-        <StatCard label="VIP / 100%" value={summary.vipCustomers.toString()} highlight />
-        <StatCard label="Available Coupons" value={summary.availableCoupons.toString()} />
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <StatCard label="Delivered Revenue" value={formatUSD(completedRevenue)} highlight />
+        <StatCard label="Delivered Orders" value={deliveredOrders.length.toString()} />
+        <StatCard label="Average Order" value={formatUSD(averageOrderValue)} />
+        <StatCard label="Discounts Granted" value={formatUSD(discountsGranted)} />
+        <StatCard label="Agent Revenue" value={formatUSD(agentAttributedRevenue)} />
+        <StatCard label="Available Coupons" value={availableCoupons.toString()} />
       </section>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+        <ChartCard
+          title="Revenue Trend"
+          subtitle="Delivered sales revenue for the selected period."
+        >
+          <ResponsiveContainer width="100%" height={290}>
+            <LineChart data={dailyTrend} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7ded2" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24} />
+              <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} width={68} />
+              <Tooltip formatter={(value) => formatUSD(Number(value))} />
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue"
+                stroke="#7c3aed"
+                strokeWidth={3}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Order Status"
+          subtitle={`${filteredOrders.length} total order(s) in this period.`}
+        >
+          {statusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={290}>
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={65}
+                  outerRadius={100}
+                  paddingAngle={3}
+                >
+                  {statusData.map((row, index) => (
+                    <Cell key={row.name} fill={chartColors[index % chartColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart />
+          )}
+          <LegendRows data={statusData} valueFormatter={(value) => `${value} order(s)`} />
+        </ChartCard>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-3">
+        <ChartCard title="Top Products" subtitle="Revenue from delivered orders.">
+          {topProducts.length > 0 ? (
+            <ResponsiveContainer width="100%" height={270}>
+              <BarChart data={topProducts} layout="vertical" margin={{ left: 8, right: 12 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e7ded2" />
+                <XAxis type="number" tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="name" width={112} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value) => formatUSD(Number(value))} />
+                <Bar dataKey="revenue" name="Revenue" fill="#7c3aed" radius={[0, 10, 10, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart />
+          )}
+        </ChartCard>
+
+        <ChartCard
+          title="Payment Methods"
+          subtitle="Delivered revenue distribution."
+        >
+          {paymentData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={215}>
+              <PieChart>
+                <Pie
+                  data={paymentData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={82}
+                >
+                  {paymentData.map((row, index) => (
+                    <Cell key={row.name} fill={chartColors[index % chartColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatUSD(Number(value))} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart small />
+          )}
+          <LegendRows data={paymentData} valueFormatter={formatUSD} />
+        </ChartCard>
+
+        <ChartCard title="Agent-Attributed Sales" subtitle={`${agentRevenuePercent.toFixed(1)}% of delivered revenue.`}>
+          {topAgents.length > 0 ? (
+            <ResponsiveContainer width="100%" height={270}>
+              <BarChart data={topAgents} margin={{ left: 0, right: 12 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7ded2" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} width={60} />
+                <Tooltip formatter={(value) => formatUSD(Number(value))} />
+                <Bar dataKey="revenue" name="Revenue" fill="#16a34a" radius={[10, 10, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart />
+          )}
+        </ChartCard>
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <h2 className="text-2xl font-black">Customer Segments</h2>
+          <h2 className="text-2xl font-black">Revenue Summary</h2>
           <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
-            Customers grouped by delivered-spending progress.
+            Delivered-order financial view for the selected period.
           </p>
 
-          <div className="mt-7 space-y-5">
-            {segments.map((segment) => (
-              <div key={segment.label}>
-                <div className="mb-2 flex justify-between gap-3 text-sm">
-                  <p className="font-bold">{segment.label}</p>
-                  <p className="font-black">{segment.value}</p>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-[#eee2d4] dark:bg-white/[0.08]">
-                  <div
-                    className="h-full rounded-full bg-violet-600"
-                    style={{ width: `${segment.width}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+          <div className="mt-6 space-y-4">
+            <DetailRow label="Gross before rewards" value={formatUSD(grossBeforeDiscount)} />
+            <DetailRow label="Coupon discounts granted" value={`- ${formatUSD(discountsGranted)}`} />
+            <DetailRow label="Net delivered revenue" value={formatUSD(completedRevenue)} strong />
+            <DetailRow label="Agent-attributed revenue" value={formatUSD(agentAttributedRevenue)} />
+            <DetailRow label="Direct revenue" value={formatUSD(completedRevenue - agentAttributedRevenue)} />
           </div>
 
-          <div className="mt-7 rounded-3xl bg-[#f8efe4] p-5 text-sm dark:bg-white/[0.05]">
-            <p className="font-black">Reward thresholds</p>
+          <div className="mt-6 rounded-3xl bg-[#f8efe4] p-5 text-sm dark:bg-white/[0.05]">
+            <p className="font-black">Interpretation</p>
             <p className="mt-2 text-[#725f4d] dark:text-gray-400">
-              30% coupon at {formatUSD(firstRewardGoal)} delivered spend. VIP / 100%
-              reached at {formatUSD(highestGoal)}.
+              Revenue metrics use delivered orders only, so pending or cancelled
+              orders do not overstate completed sales performance.
             </p>
           </div>
         </div>
@@ -378,152 +628,50 @@ export default function AdminSalesRewardsPage() {
             <div>
               <h2 className="text-2xl font-black">100% VIP Customers</h2>
               <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
-                Customers who reached the highest spending milestone.
+                Customers who reached the highest reward milestone.
               </p>
             </div>
-            <span className="rounded-full bg-violet-600 px-4 py-2 text-xs font-black uppercase text-white">
-              {summary.vipCustomers} VIP
-            </span>
+            <Link
+              href="/admin/customers"
+              className="text-xs font-black uppercase tracking-[0.15em] text-violet-600"
+            >
+              View Customers
+            </Link>
           </div>
 
           <div className="mt-5 space-y-3">
-            {rewardRows
-              .filter((customer) => Number(customer.progress_percent || 0) >= 100)
-              .slice(0, 6)
-              .map((customer) => (
+            {vipCustomers.length === 0 ? (
+              <p className="rounded-3xl bg-[#f8efe4] p-6 text-center text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+                No customers have reached the VIP milestone yet.
+              </p>
+            ) : (
+              vipCustomers.map((customer) => (
                 <div
                   key={customer.user_id}
                   className="flex flex-col justify-between gap-3 rounded-3xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-400/20 dark:bg-violet-400/10 sm:flex-row sm:items-center"
                 >
                   <div>
-                    <p className="font-black">
-                      {customer.full_name || "Unnamed Customer"}
-                    </p>
-                    <p className="text-sm text-[#725f4d] dark:text-gray-300">
-                      {customer.available_coupons} available coupon(s)
+                    <p className="font-black">{customer.full_name || "Unnamed Customer"}</p>
+                    <p className="text-xs font-black uppercase tracking-[0.15em] text-violet-600">
+                      {customer.reward_status || "VIP Reward Reached"}
                     </p>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <p className="font-black">{formatUSD(customer.total_delivered_spend)}</p>
-                    <p className="text-xs font-black uppercase text-violet-600 dark:text-violet-300">
-                      100% Reached
-                    </p>
-                  </div>
+                  <p className="font-black">{formatUSD(Number(customer.total_delivered_spend || 0))}</p>
                 </div>
-              ))}
-
-            {summary.vipCustomers === 0 && (
-              <p className="rounded-3xl bg-[#f8efe4] p-6 text-center text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
-                No customers have reached the VIP milestone yet.
-              </p>
+              ))
             )}
           </div>
         </div>
       </section>
-
-      <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <h2 className="text-2xl font-black">Reward Customer Table</h2>
-            <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
-              Delivered-spending progress and issued coupons.
-            </p>
-          </div>
-
-          <select
-            value={progressFilter}
-            onChange={(e) =>
-              setProgressFilter(
-                e.target.value as "all" | "vip" | "qualified" | "building"
-              )
-            }
-            className="rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm font-bold text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
-          >
-            <option value="all">All Customers</option>
-            <option value="vip">VIP / 100%</option>
-            <option value="qualified">30% Qualified</option>
-            <option value="building">Building Rewards</option>
-          </select>
-        </div>
-
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#ded0bf] text-xs uppercase tracking-[0.2em] text-[#725f4d] dark:border-white/10 dark:text-gray-400">
-                <th className="py-4">Customer</th>
-                <th className="py-4">Delivered Spend</th>
-                <th className="py-4">Progress</th>
-                <th className="py-4">Status</th>
-                <th className="py-4">Coupons</th>
-                <th className="py-4">Next Target</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((customer) => (
-                <tr
-                  key={customer.user_id}
-                  className="border-b border-[#eadfd1] dark:border-white/5"
-                >
-                  <td className="py-4 font-black">
-                    {customer.full_name || "Unnamed Customer"}
-                  </td>
-                  <td className="py-4 font-black">
-                    {formatUSD(customer.total_delivered_spend)}
-                  </td>
-                  <td className="py-4">
-                    <div className="w-36">
-                      <div className="flex justify-between text-xs font-bold">
-                        <span>{Number(customer.progress_percent || 0).toFixed(0)}%</span>
-                      </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#eee2d4] dark:bg-white/[0.08]">
-                        <div
-                          className="h-full rounded-full bg-violet-600"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Number(customer.progress_percent || 0)
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4">
-                    <RewardBadge
-                      status={customer.reward_status}
-                      percent={Number(customer.progress_percent || 0)}
-                    />
-                  </td>
-                  <td className="py-4">
-                    <p className="font-bold">{customer.total_coupons} issued</p>
-                    <p className="text-xs text-[#725f4d] dark:text-gray-400">
-                      {customer.available_coupons} available
-                    </p>
-                  </td>
-                  <td className="py-4">
-                    {customer.next_reward_target
-                      ? formatUSD(customer.next_reward_target)
-                      : "Completed"}
-                  </td>
-                </tr>
-              ))}
-
-              {filteredRows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-10 text-center text-[#725f4d] dark:text-gray-400"
-                  >
-                    No customers found for this reward segment.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </AppShell>
   );
+}
+
+function titleCase(value: string) {
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function StatCard({
@@ -537,34 +685,91 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-[2rem] border p-6 shadow-sm ${
+      className={`rounded-[2rem] border p-5 shadow-sm ${
         highlight
           ? "border-violet-200 bg-violet-50 dark:border-violet-400/20 dark:bg-violet-400/10"
           : "border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"
       }`}
     >
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#725f4d] dark:text-gray-400">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#725f4d] dark:text-gray-400">
         {label}
       </p>
-      <p className="mt-3 text-3xl font-black">{value}</p>
+      <p className="mt-3 text-2xl font-black">{value}</p>
     </div>
   );
 }
 
-function RewardBadge({ status, percent }: { status: string; percent: number }) {
-  const style =
-    percent >= 100
-      ? "bg-violet-600"
-      : status.includes("Earned")
-        ? "bg-green-600"
-        : "bg-zinc-500";
-
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${style}`}
+    <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <h2 className="text-2xl font-black">{title}</h2>
+      <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">{subtitle}</p>
+      <div className="mt-5">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className={`flex justify-between gap-4 ${strong ? "border-y border-[#ded0bf] py-4 dark:border-white/10" : ""}`}>
+      <p className="text-sm text-[#725f4d] dark:text-gray-400">{label}</p>
+      <p className={`${strong ? "text-lg" : "text-sm"} font-black`}>{value}</p>
+    </div>
+  );
+}
+
+function LegendRows({
+  data,
+  valueFormatter,
+}: {
+  data: NamedValue[];
+  valueFormatter: (value: number) => string;
+}) {
+  return (
+    <div className="mt-2 space-y-2">
+      {data.slice(0, 6).map((row, index) => (
+        <div key={row.name} className="flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-full"
+              style={{ backgroundColor: chartColors[index % chartColors.length] }}
+            />
+            <span className="font-bold">{row.name}</span>
+          </div>
+          <span className="text-[#725f4d] dark:text-gray-400">
+            {valueFormatter(row.value)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyChart({ small = false }: { small?: boolean }) {
+  return (
+    <div
+      className={`flex items-center justify-center rounded-3xl bg-[#f8efe4] text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400 ${
+        small ? "h-[215px]" : "h-[270px]"
+      }`}
     >
-      {status}
-    </span>
+      No delivered sales data yet.
+    </div>
   );
 }
 
@@ -585,11 +790,7 @@ function AccessCard({
 }) {
   return (
     <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <p
-        className={`text-xs font-black uppercase tracking-[0.3em] ${
-          danger ? "text-red-600" : "text-violet-600"
-        }`}
-      >
+      <p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-violet-600"}`}>
         {label}
       </p>
       <h1 className="mt-4 text-4xl font-black">{title}</h1>

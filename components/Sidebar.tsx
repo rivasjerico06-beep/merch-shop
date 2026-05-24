@@ -54,6 +54,7 @@ const customerApplicationLink: NavLink = {
 
 const agentWorkspaceLinks: NavLink[] = [
   { href: "/agent", label: "Dashboard", icon: faGauge },
+  { href: "/agent/leads", label: "My Leads", icon: faHeadset },
   { href: "/account", label: "My Account", icon: faUser },
 ];
 
@@ -74,6 +75,7 @@ const adminLinks: NavLink[] = [
   { href: "/admin/orders", label: "Orders", icon: faClipboardList },
   { href: "/admin/customers", label: "Customers", icon: faUsers },
   { href: "/admin/agents", label: "Agents", icon: faHeadset },
+  { href: "/admin/leads", label: "Lead Calls", icon: faHeadset },
 ];
 
 export default function Sidebar({

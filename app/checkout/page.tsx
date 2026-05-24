@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase";
 import type { CartItem, Profile, Receipt, ToastItem } from "@/lib/types";
 import {
   calculateCartCount,
-  calculateCartTotal,
   formatPrice,
   getCartProduct,
   hasValidImageUrl,
@@ -30,6 +29,25 @@ type ReferralMatch = {
   agent_id: string;
   agent_name: string;
   referral_code: string;
+};
+
+type CustomerCoupon = {
+  id: string;
+  coupon_code: string;
+  discount_percent: number;
+  max_discount: number;
+  minimum_order_amount: number;
+  status: string;
+  expires_at: string;
+};
+
+type CheckoutRpcResult = {
+  order_id: string;
+  order_subtotal: number;
+  order_discount: number;
+  order_total: number;
+  applied_coupon_code: string | null;
+  applied_agent_referral_code: string | null;
 };
 
 const emptyCheckoutForm: CheckoutForm = {
@@ -55,6 +73,9 @@ export default function CheckoutPage() {
   const [validatedReferral, setValidatedReferral] =
     useState<ReferralMatch | null>(null);
   const [checkingReferral, setCheckingReferral] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<CustomerCoupon | null>(null);
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
@@ -67,7 +88,6 @@ export default function CheckoutPage() {
     }, 3000);
   };
 
-  const cartTotal = useMemo(() => calculateCartTotal(cartItems), [cartItems]);
   const cartCount = useMemo(() => calculateCartCount(cartItems), [cartItems]);
 
   const getBaseProductPrice = (item: CartItem) => {
@@ -233,6 +253,79 @@ export default function CheckoutPage() {
     return match;
   };
 
+  const validateCouponCode = async ({
+    silent = false,
+  }: {
+    silent?: boolean;
+  } = {}): Promise<CustomerCoupon | null> => {
+    const code = couponCode.trim().toUpperCase();
+
+    if (!code) {
+      setAppliedCoupon(null);
+      return null;
+    }
+
+    if (!userId) {
+      if (!silent) addToast("Please login before applying a coupon.", "error");
+      return null;
+    }
+
+    setCheckingCoupon(true);
+
+    const { data, error } = await supabase
+      .from("customer_coupons")
+      .select(
+        "id, coupon_code, discount_percent, max_discount, minimum_order_amount, status, expires_at"
+      )
+      .eq("user_id", userId)
+      .ilike("coupon_code", code)
+      .maybeSingle();
+
+    setCheckingCoupon(false);
+
+    const coupon = (data as CustomerCoupon | null) || null;
+
+    if (error || !coupon) {
+      setAppliedCoupon(null);
+      if (!silent) addToast("Coupon code is invalid for this account.", "error");
+      return null;
+    }
+
+    if (coupon.status !== "available") {
+      setAppliedCoupon(null);
+      if (!silent) addToast("This coupon is no longer available.", "error");
+      return null;
+    }
+
+    if (new Date(coupon.expires_at).getTime() <= Date.now()) {
+      setAppliedCoupon(null);
+      if (!silent) addToast("This coupon has expired.", "error");
+      return null;
+    }
+
+    if (getCheckoutTotal() < Number(coupon.minimum_order_amount || 0)) {
+      setAppliedCoupon(null);
+      if (!silent) {
+        addToast(
+          `This coupon requires a minimum order of ${formatUSD(
+            Number(coupon.minimum_order_amount || 0)
+          )}.`,
+          "error"
+        );
+      }
+      return null;
+    }
+
+    setCouponCode(coupon.coupon_code);
+    setAppliedCoupon(coupon);
+
+    if (!silent) {
+      addToast(`${Number(coupon.discount_percent).toFixed(0)}% coupon applied`, "success");
+    }
+
+    return coupon;
+  };
+
   const validateStock = () => {
     for (const item of cartItems) {
       const product = getCartProduct(item);
@@ -325,6 +418,7 @@ export default function CheckoutPage() {
     }
 
     let verifiedReferral: ReferralMatch | null = null;
+    let verifiedCoupon: CustomerCoupon | null = null;
 
     if (referralCode.trim()) {
       verifiedReferral = await validateReferralCode({ silent: true });
@@ -339,98 +433,89 @@ export default function CheckoutPage() {
       }
     }
 
-    const orderPayload = {
-      user_id: userId,
-      full_name: parsed.full_name,
-      phone: parsed.phone,
-      address: parsed.address,
-      city: parsed.city,
-      province: parsed.province,
-      postal_code: parsed.postal_code,
-      payment_method: parsed.payment_method,
-      status: "pending",
-      total_amount: getCheckoutTotal(),
-      agent_referral_code: verifiedReferral?.referral_code || null,
-    };
+    if (couponCode.trim()) {
+      verifiedCoupon = await validateCouponCode({ silent: true });
 
-    const { data: newOrder, error: orderError } = await supabase
-      .from("orders")
-      .insert(orderPayload)
-      .select()
-      .single();
-
-    if (orderError || !newOrder) {
-      const databaseMessage = orderError?.message || "";
-
-      if (databaseMessage.includes("own referral code")) {
-        addToast("You cannot apply your own referral code to your personal order.", "error");
-      } else if (databaseMessage.includes("Invalid or inactive agent referral code")) {
-        addToast("The agent referral code is invalid or inactive.", "error");
-      } else {
-        addToast("Failed to create order", "error");
+      if (!verifiedCoupon) {
+        addToast(
+          "Please apply a valid coupon code or remove it before placing your order.",
+          "error"
+        );
+        setPlacingOrder(false);
+        return;
       }
-
-      console.error(orderError);
-      setPlacingOrder(false);
-      return;
     }
 
-    const lineItems = cartItems.map((item) => {
-      const product = getCartProduct(item);
-
-      return {
-        order_id: newOrder.id,
-        product_id: item.product_id,
-        size: item.size,
-        quantity: item.quantity,
-        price: getUnitBundlePrice(item),
-        option_id: item.option_id || null,
-        option_label: item.option_label || null,
-        option_price_delta: Number(item.option_price_delta || 0),
-        option_quantity: Number(item.option_quantity || 1),
-      };
+    const { data, error } = await supabase.rpc("place_checkout_order", {
+      input_full_name: parsed.full_name,
+      input_phone: normalizePhone(parsed.phone),
+      input_address: parsed.address,
+      input_city: parsed.city,
+      input_province: parsed.province,
+      input_postal_code: parsed.postal_code,
+      input_payment_method: parsed.payment_method,
+      input_agent_referral_code: verifiedReferral?.referral_code || null,
+      input_coupon_code: verifiedCoupon?.coupon_code || null,
     });
 
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(lineItems);
+    const checkoutResult = Array.isArray(data)
+      ? (data[0] as CheckoutRpcResult | undefined)
+      : undefined;
 
-    if (itemsError) {
-      addToast("Order created, but items failed to save", "error");
-      console.error(itemsError);
+    if (error || !checkoutResult) {
+      const message = error?.message || "";
+
+      if (message.includes("own referral code")) {
+        addToast("You cannot apply your own referral code to your personal order.", "error");
+      } else if (message.includes("Invalid or inactive agent referral code")) {
+        addToast("The agent referral code is invalid or inactive.", "error");
+      } else if (message.includes("coupon has expired")) {
+        addToast("This coupon has expired.", "error");
+      } else if (message.includes("coupon is no longer available")) {
+        addToast("This coupon has already been used or is unavailable.", "error");
+      } else if (message.includes("minimum amount required")) {
+        addToast("Your order does not meet the minimum amount for this coupon.", "error");
+      } else if (message.includes("out of stock") || message.includes("unavailable")) {
+        addToast("One or more products are unavailable or out of stock.", "error");
+      } else {
+        addToast("Failed to place order. Please review your details and try again.", "error");
+      }
+
+      console.error("Secure checkout error:", error);
       setPlacingOrder(false);
       return;
-    }
-
-    const { error: clearError } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("user_id", userId);
-
-    if (clearError) {
-      console.error(clearError);
     }
 
     setReceipt({
-      orderId: newOrder.id,
-      createdAt: newOrder.created_at || new Date().toISOString(),
-      fullName: orderPayload.full_name,
-      phone: orderPayload.phone,
-      address: orderPayload.address,
-      city: orderPayload.city,
-      province: orderPayload.province,
-      postalCode: orderPayload.postal_code,
-      paymentMethod: orderPayload.payment_method,
-      status: orderPayload.status,
-      totalAmount: Number(orderPayload.total_amount || 0),
+      orderId: checkoutResult.order_id,
+      createdAt: new Date().toISOString(),
+      fullName: parsed.full_name,
+      phone: normalizePhone(parsed.phone),
+      address: parsed.address,
+      city: parsed.city,
+      province: parsed.province,
+      postalCode: parsed.postal_code,
+      paymentMethod: parsed.payment_method,
+      status: "pending",
+      totalAmount: Number(checkoutResult.order_total || 0),
       items: buildReceiptItems(),
     });
 
     setCartItems([]);
     setReferralCode("");
     setValidatedReferral(null);
+    setCouponCode("");
+    setAppliedCoupon(null);
     setPlacingOrder(false);
-    addToast("Order placed. Receipt is ready.", "success");
+
+    if (Number(checkoutResult.order_discount || 0) > 0) {
+      addToast(
+        `Order placed. You saved ${formatUSD(Number(checkoutResult.order_discount))}.`,
+        "success"
+      );
+    } else {
+      addToast("Order placed. Receipt is ready.", "success");
+    }
   };
 
   const copyReceiptSummary = async () => {
@@ -465,7 +550,15 @@ export default function CheckoutPage() {
     }
   };
 
-  const checkoutTotal = getCheckoutTotal();
+  const checkoutSubtotal = getCheckoutTotal();
+  const previewDiscount =
+    appliedCoupon && checkoutSubtotal >= Number(appliedCoupon.minimum_order_amount || 0)
+      ? Math.min(
+          checkoutSubtotal * (Number(appliedCoupon.discount_percent || 0) / 100),
+          Number(appliedCoupon.max_discount || 0)
+        )
+      : 0;
+  const checkoutTotal = Math.max(0, checkoutSubtotal - previewDiscount);
 
   return (
     <AppShell title="Checkout" toasts={toasts}>
@@ -645,8 +738,56 @@ export default function CheckoutPage() {
             )}
           </div>
 
+          <div className="mt-6 rounded-3xl border border-green-200 bg-green-50 p-5 dark:border-green-400/20 dark:bg-green-400/10">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-green-700 dark:text-green-300">
+              Reward Coupon
+            </p>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-gray-300">
+              Use a coupon you earned from your delivered purchase milestones.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value.toUpperCase());
+                  setAppliedCoupon(null);
+                }}
+                maxLength={40}
+                placeholder="Enter your coupon code"
+                className="min-w-0 flex-1 rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-bold uppercase tracking-[0.08em] text-zinc-950 outline-none focus:border-green-600 dark:border-green-400/20 dark:bg-zinc-900 dark:text-white"
+              />
+
+              <button
+                type="button"
+                disabled={checkingCoupon || !couponCode.trim() || !userId}
+                onClick={() => validateCouponCode()}
+                className="rounded-2xl bg-green-700 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-green-800 disabled:opacity-60"
+              >
+                {checkingCoupon ? "Checking..." : "Apply Coupon"}
+              </button>
+            </div>
+
+            {appliedCoupon && (
+              <div className="mt-4 rounded-2xl border border-green-200 bg-white p-4 text-sm text-green-900 dark:border-green-400/20 dark:bg-green-400/10 dark:text-green-100">
+                <p className="font-black">Coupon applied</p>
+                <p className="mt-1">
+                  {Number(appliedCoupon.discount_percent).toFixed(0)}% OFF · up to{" "}
+                  {formatUSD(Number(appliedCoupon.max_discount || 0))} savings
+                </p>
+              </div>
+            )}
+
+            <Link
+              href="/rewards"
+              className="mt-4 inline-block text-xs font-black uppercase tracking-[0.15em] text-green-700 hover:underline dark:text-green-300"
+            >
+              View my reward coupons
+            </Link>
+          </div>
+
           <button
-            disabled={placingOrder || loading || checkingReferral || cartItems.length === 0 || !userId}
+            disabled={placingOrder || loading || checkingReferral || checkingCoupon || cartItems.length === 0 || !userId}
             className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
           >
             {placingOrder ? "Placing Order..." : "Place Order"}
@@ -716,7 +857,13 @@ export default function CheckoutPage() {
 
               <div className="mt-5 border-t border-black/10 pt-5 dark:border-white/10">
                 <SummaryRow label="Items" value={cartCount.toString()} />
-                <SummaryRow label="Subtotal" value={formatUSD(checkoutTotal)} />
+                <SummaryRow label="Subtotal" value={formatUSD(checkoutSubtotal)} />
+                {appliedCoupon && previewDiscount > 0 && (
+                  <SummaryRow
+                    label={`Coupon (${Number(appliedCoupon.discount_percent).toFixed(0)}% OFF)`}
+                    value={`- ${formatUSD(previewDiscount)}`}
+                  />
+                )}
                 <SummaryRow label="Shipping" value="To be confirmed" />
                 {validatedReferral && (
                   <SummaryRow
