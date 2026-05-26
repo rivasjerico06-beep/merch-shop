@@ -29,6 +29,33 @@ type Lead = {
   next_follow_up_at: string | null;
   last_contacted_at: string | null;
   created_at: string;
+  contact_basis?: string | null;
+  contact_basis_details?: string | null;
+  created_via?: string | null;
+};
+
+type ReviewRequest = {
+  id: string;
+  related_lead_id: string | null;
+  request_type: string;
+  reason: string;
+  status: string;
+  resolution_notes: string | null;
+  created_at: string;
+};
+
+type ReviewRequestForm = {
+  request_type: string;
+  phone: string;
+  reason: string;
+  related_lead_id: string;
+};
+
+const emptyReviewRequestForm: ReviewRequestForm = {
+  request_type: "reassignment_or_duplicate",
+  phone: "",
+  reason: "",
+  related_lead_id: "",
 };
 
 type Activity = {
@@ -66,6 +93,38 @@ const emptyCallForm: CallForm = {
   caller_id_used: "",
 };
 
+type NewLeadForm = {
+  customer_name: string;
+  phone: string;
+  email: string;
+  product_interest: string;
+  contact_basis: string;
+  contact_basis_details: string;
+  consent_reference: string;
+  consent_recorded_at: string;
+};
+
+const emptyNewLeadForm: NewLeadForm = {
+  customer_name: "",
+  phone: "",
+  email: "",
+  product_interest: "",
+  contact_basis: "customer_requested_call",
+  contact_basis_details: "",
+  consent_reference: "",
+  consent_recorded_at: "",
+};
+
+const contactBasisOptions = [
+  { value: "customer_requested_call", label: "Customer requested a call" },
+  { value: "customer_messaged_business", label: "Customer messaged the business" },
+  {
+    value: "existing_customer_requested_assistance",
+    label: "Existing customer requested assistance",
+  },
+  { value: "documented_consent", label: "Documented consent to be contacted" },
+];
+
 const outcomeOptions = [
   { value: "no_answer", label: "No Answer" },
   { value: "interested", label: "Interested" },
@@ -78,10 +137,18 @@ const outcomeOptions = [
 export default function AgentLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [reviewRequests, setReviewRequests] = useState<ReviewRequest[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [callForm, setCallForm] = useState<CallForm>(emptyCallForm);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showCreateLead, setShowCreateLead] = useState(false);
+  const [newLeadForm, setNewLeadForm] = useState<NewLeadForm>(emptyNewLeadForm);
+  const [creatingLead, setCreatingLead] = useState(false);
+  const [showReviewRequest, setShowReviewRequest] = useState(false);
+  const [reviewRequestForm, setReviewRequestForm] =
+    useState<ReviewRequestForm>(emptyReviewRequestForm);
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingCall, setSavingCall] = useState(false);
   const [agentApproved, setAgentApproved] = useState(false);
@@ -107,6 +174,7 @@ export default function AgentLeadsPage() {
       setAgentApproved(false);
       setLeads([]);
       setActivities([]);
+      setReviewRequests([]);
       setLoading(false);
       return;
     }
@@ -125,11 +193,11 @@ export default function AgentLeadsPage() {
       return;
     }
 
-    const [leadResult, activityResult] = await Promise.all([
+    const [leadResult, activityResult, reviewResult] = await Promise.all([
       supabase
         .from("sales_leads")
         .select(
-          "id, customer_name, phone, email, source, status, call_permission_status, do_not_contact, product_interest, next_follow_up_at, last_contacted_at, created_at"
+          "id, customer_name, phone, email, source, status, call_permission_status, do_not_contact, product_interest, next_follow_up_at, last_contacted_at, created_at, contact_basis, contact_basis_details, created_via"
         )
         .eq("assigned_agent_id", user.id)
         .order("created_at", { ascending: false }),
@@ -139,6 +207,10 @@ export default function AgentLeadsPage() {
           "id, lead_id, activity_type, outcome, notes, follow_up_at, call_provider, external_call_id, caller_id_used, call_duration_seconds, actual_call_cost, created_at"
         )
         .eq("agent_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("lead_review_requests")
+        .select("id, related_lead_id, request_type, reason, status, resolution_notes, created_at")
         .order("created_at", { ascending: false }),
     ]);
 
@@ -151,9 +223,16 @@ export default function AgentLeadsPage() {
 
     if (activityResult.error) {
       addToast("Unable to load call activity history.", "error");
-      console.error("Lead activities error:", activityResult.error);
+      console.warn("Lead activities error:", activityResult.error);
     } else {
       setActivities((activityResult.data || []) as Activity[]);
+    }
+
+    if (reviewResult.error) {
+      addToast("Unable to load admin review requests.", "error");
+      console.warn("Review requests error:", reviewResult.error);
+    } else {
+      setReviewRequests((reviewResult.data || []) as ReviewRequest[]);
     }
 
     setLoading(false);
@@ -179,7 +258,7 @@ export default function AgentLeadsPage() {
       followUpsDue: leads.filter((lead) => {
         if (!lead.next_follow_up_at || lead.do_not_contact) return false;
         const date = new Date(lead.next_follow_up_at);
-        return date <= endOfDay && date <= today || date <= endOfDay;
+        return date <= endOfDay;
       }).length,
       interested: leads.filter((lead) => lead.status === "interested").length,
       converted: leads.filter((lead) => lead.status === "converted").length,
@@ -215,6 +294,143 @@ export default function AgentLeadsPage() {
   const selectLead = (lead: Lead) => {
     setSelectedLead(lead);
     setCallForm(emptyCallForm);
+  };
+
+  const createOwnLead = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const name = newLeadForm.customer_name.trim();
+    const phone = newLeadForm.phone.trim();
+    const email = newLeadForm.email.trim();
+    const details = newLeadForm.contact_basis_details.trim();
+
+    if (name.length < 2 || name.length > 100) {
+      addToast("Customer name must be between 2 and 100 characters.", "error");
+      return;
+    }
+
+    if (phone.length < 7 || phone.length > 30 || !/^[+0-9() -]+$/.test(phone)) {
+      addToast("Enter a valid customer phone number.", "error");
+      return;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addToast("Enter a valid email address or leave it blank.", "error");
+      return;
+    }
+
+    if (details.length < 5 || details.length > 500) {
+      addToast("Record how the customer requested or authorized contact.", "error");
+      return;
+    }
+
+    if (
+      newLeadForm.contact_basis === "documented_consent" &&
+      (!newLeadForm.consent_reference.trim() || !newLeadForm.consent_recorded_at)
+    ) {
+      addToast("Documented consent requires a reference and recorded date.", "error");
+      return;
+    }
+
+    setCreatingLead(true);
+
+    const { error } = await supabase.rpc("create_my_sales_lead", {
+      input_customer_name: name,
+      input_phone: phone,
+      input_email: email || null,
+      input_product_interest: newLeadForm.product_interest.trim() || null,
+      input_contact_basis: newLeadForm.contact_basis,
+      input_contact_basis_details: details,
+      input_consent_reference:
+        newLeadForm.contact_basis === "documented_consent"
+          ? newLeadForm.consent_reference.trim()
+          : null,
+      input_consent_recorded_at:
+        newLeadForm.contact_basis === "documented_consent" &&
+        newLeadForm.consent_recorded_at
+          ? new Date(newLeadForm.consent_recorded_at).toISOString()
+          : null,
+    });
+
+    if (error) {
+      addToast(error.message || "Unable to create lead.", "error");
+      console.error("Create my sales lead error:", error);
+      setCreatingLead(false);
+      return;
+    }
+
+    addToast("Lead created and ready for your assisted workflow.", "success");
+    setNewLeadForm(emptyNewLeadForm);
+    setShowCreateLead(false);
+    await loadLeads();
+    setCreatingLead(false);
+  };
+
+  const submitReviewRequest = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (reviewRequestForm.reason.trim().length < 10) {
+      addToast("Explain the issue using at least 10 characters.", "error");
+      return;
+    }
+
+    setSubmittingReview(true);
+
+    const { error } = await supabase.rpc("submit_my_lead_review_request", {
+      input_request_type: reviewRequestForm.request_type,
+      input_reason: reviewRequestForm.reason.trim(),
+      input_phone: reviewRequestForm.phone.trim() || null,
+      input_related_lead_id: reviewRequestForm.related_lead_id || null,
+    });
+
+    if (error) {
+      addToast(error.message || "Unable to send admin review request.", "error");
+      setSubmittingReview(false);
+      return;
+    }
+
+    addToast("Admin review request submitted.", "success");
+    setReviewRequestForm(emptyReviewRequestForm);
+    setShowReviewRequest(false);
+    await loadLeads();
+    setSubmittingReview(false);
+  };
+
+  const copyAssistedShoppingLink = async (lead: Lead) => {
+    if (
+      lead.do_not_contact ||
+      lead.call_permission_status !== "approved_to_call" ||
+      lead.status === "converted"
+    ) {
+      addToast("This lead is not eligible for an assisted shopping link.", "error");
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("create_my_lead_assisted_link", {
+      input_lead_id: lead.id,
+    });
+
+    const linkRecord = Array.isArray(data)
+      ? (data[0] as { assist_token: string; expires_at: string } | undefined)
+      : undefined;
+
+    if (error || !linkRecord?.assist_token) {
+      addToast(error?.message || "Unable to create assisted shopping link.", "error");
+      return;
+    }
+
+    const link = `${window.location.origin}/products?assist=${encodeURIComponent(
+      linkRecord.assist_token
+    )}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      addToast("Single-use assisted shopping link copied.", "success");
+    } catch {
+      addToast("Link created, but could not be copied. Please try again.", "error");
+    }
   };
 
   const copyPhoneAndOpenDialer = async (lead: Lead) => {
@@ -365,14 +581,36 @@ export default function AgentLeadsPage() {
       toasts={toasts}
     >
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
-          HelloAirDial Workflow
-        </p>
-        <h1 className="mt-3 text-4xl font-black md:text-6xl">My Leads</h1>
-        <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
-          Call only authorized assigned leads using HelloAirDial, then record
-          the call result and required follow-up in this portal.
-        </p>
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+              HelloAirDial Workflow
+            </p>
+            <h1 className="mt-3 text-4xl font-black md:text-6xl">My Leads</h1>
+            <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
+              Create legitimate customer-assistance leads, call through HelloAirDial,
+              record outcomes, and send single-use shopping links when customers are interested.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setShowReviewRequest(true)}
+              className="rounded-full border border-[#cdbba7] bg-white px-6 py-4 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent"
+            >
+              Request Admin Review
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCreateLead(true)}
+              className="rounded-full bg-zinc-950 px-6 py-4 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+            >
+              New Lead
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -383,6 +621,54 @@ export default function AgentLeadsPage() {
         <StatCard label="Converted" value={summary.converted} />
         <StatCard label="Do Not Contact" value={summary.doNotContact} danger />
       </section>
+
+      <section className="mt-6 rounded-[2rem] border border-green-200 bg-green-50 p-5 text-sm text-green-950 dark:border-green-400/20 dark:bg-green-400/10 dark:text-green-100">
+        <p className="font-black">Self-service lead creation is controlled</p>
+        <p className="mt-2">
+          You may create a callable lead only when the customer requested contact,
+          messaged the business, requested assistance as an existing customer, or gave
+          documented consent. Duplicate active contacts and Do Not Contact records are blocked.
+        </p>
+      </section>
+
+      {reviewRequests.length > 0 && (
+        <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <h2 className="text-2xl font-black">My Admin Review Requests</h2>
+          <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
+            Use this for duplicate contact reassignment, DNC concerns, or conversion disputes.
+          </p>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {reviewRequests.slice(0, 6).map((request) => (
+              <div
+                key={request.id}
+                className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10"
+              >
+                <div className="flex justify-between gap-3">
+                  <p className="font-black">{titleCase(request.request_type)}</p>
+                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
+                    request.status === "open"
+                      ? "bg-amber-500 text-black"
+                      : request.status === "resolved"
+                        ? "bg-green-600"
+                        : "bg-red-600"
+                  }`}>
+                    {request.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-[#725f4d] dark:text-gray-300">
+                  {request.reason}
+                </p>
+                {request.resolution_notes && (
+                  <p className="mt-3 rounded-xl bg-green-50 p-3 text-xs text-green-900 dark:bg-green-400/10 dark:text-green-100">
+                    Admin response: {request.resolution_notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -475,6 +761,33 @@ export default function AgentLeadsPage() {
         </div>
       </section>
 
+      {showReviewRequest && (
+        <ReviewRequestModal
+          form={reviewRequestForm}
+          setForm={setReviewRequestForm}
+          leads={leads}
+          saving={submittingReview}
+          onSubmit={submitReviewRequest}
+          onClose={() => {
+            setReviewRequestForm(emptyReviewRequestForm);
+            setShowReviewRequest(false);
+          }}
+        />
+      )}
+
+      {showCreateLead && (
+        <CreateLeadModal
+          form={newLeadForm}
+          setForm={setNewLeadForm}
+          saving={creatingLead}
+          onSubmit={createOwnLead}
+          onClose={() => {
+            setNewLeadForm(emptyNewLeadForm);
+            setShowCreateLead(false);
+          }}
+        />
+      )}
+
       {selectedLead && (
         <LeadCallModal
           lead={selectedLead}
@@ -484,11 +797,284 @@ export default function AgentLeadsPage() {
           savingCall={savingCall}
           onClose={() => setSelectedLead(null)}
           onOpenDialer={() => copyPhoneAndOpenDialer(selectedLead)}
+          onCopyAssistedLink={() => copyAssistedShoppingLink(selectedLead)}
           onSubmit={recordCallResult}
           onDoNotContact={() => markDoNotContact(selectedLead)}
         />
       )}
     </AppShell>
+  );
+}
+
+function ReviewRequestModal({
+  form,
+  setForm,
+  leads,
+  saving,
+  onSubmit,
+  onClose,
+}: {
+  form: ReviewRequestForm;
+  setForm: React.Dispatch<React.SetStateAction<ReviewRequestForm>>;
+  leads: Lead[];
+  saving: boolean;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <form
+        onSubmit={onSubmit}
+        className="relative w-full max-w-2xl rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-zinc-950 md:p-8"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-black text-white dark:bg-white dark:text-black"
+        >
+          ✕
+        </button>
+
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          Exception Request
+        </p>
+        <h2 className="mt-3 text-3xl font-black">Request Admin Review</h2>
+
+        <div className="mt-6 space-y-4">
+          <SelectField
+            label="Request Type"
+            value={form.request_type}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, request_type: value }))
+            }
+            options={[
+              { value: "reassignment_or_duplicate", label: "Duplicate Contact / Reassignment" },
+              { value: "do_not_contact_review", label: "Do Not Contact Review" },
+              { value: "conversion_dispute", label: "Conversion Dispute" },
+              { value: "compliance_question", label: "Compliance Question" },
+              { value: "other", label: "Other" },
+            ]}
+            disabled={saving}
+          />
+
+          <SelectField
+            label="Related Lead (Optional)"
+            value={form.related_lead_id}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, related_lead_id: value }))
+            }
+            options={[
+              { value: "", label: "No related assigned lead" },
+              ...leads.map((lead) => ({
+                value: lead.id,
+                label: `${lead.customer_name} - ${lead.phone}`,
+              })),
+            ]}
+            disabled={saving}
+          />
+
+          <Field
+            label="Phone Number Involved (Optional)"
+            value={form.phone}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, phone: value }))
+            }
+            disabled={saving}
+            maxLength={30}
+          />
+
+          <div>
+            <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
+              Reason / Details
+            </label>
+            <textarea
+              rows={5}
+              maxLength={1000}
+              disabled={saving}
+              value={form.reason}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, reason: event.target.value }))
+              }
+              placeholder="Explain what admin needs to review and what action may be needed."
+              className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 disabled:opacity-50 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-50 dark:bg-white dark:text-black"
+        >
+          {saving ? "Submitting..." : "Submit Review Request"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function CreateLeadModal({
+  form,
+  setForm,
+  saving,
+  onSubmit,
+  onClose,
+}: {
+  form: NewLeadForm;
+  setForm: React.Dispatch<React.SetStateAction<NewLeadForm>>;
+  saving: boolean;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <form
+        onSubmit={onSubmit}
+        className="relative max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-zinc-950 md:p-8"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-black text-white dark:bg-white dark:text-black"
+        >
+          ✕
+        </button>
+
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          Self-Service Lead
+        </p>
+        <h2 className="mt-3 text-3xl font-black">Create Customer Lead</h2>
+        <p className="mt-3 max-w-2xl text-sm text-[#725f4d] dark:text-gray-400">
+          Create a lead only for a customer you are permitted to contact. Cold contacts
+          without an authorized basis must be sent for admin review instead.
+        </p>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Customer Name"
+            value={form.customer_name}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, customer_name: value }))
+            }
+            disabled={saving}
+            maxLength={100}
+          />
+
+          <Field
+            label="Phone Number"
+            value={form.phone}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, phone: value }))
+            }
+            disabled={saving}
+            maxLength={30}
+          />
+
+          <Field
+            label="Email (Optional)"
+            value={form.email}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, email: value }))
+            }
+            disabled={saving}
+            maxLength={254}
+          />
+
+          <Field
+            label="Product Interest (Optional)"
+            value={form.product_interest}
+            onChange={(value) =>
+              setForm((previous) => ({ ...previous, product_interest: value }))
+            }
+            disabled={saving}
+            maxLength={200}
+          />
+
+          <div className="sm:col-span-2">
+            <SelectField
+              label="Contact Basis"
+              value={form.contact_basis}
+              onChange={(value) =>
+                setForm((previous) => ({
+                  ...previous,
+                  contact_basis: value,
+                  consent_reference:
+                    value === "documented_consent"
+                      ? previous.consent_reference
+                      : "",
+                  consent_recorded_at:
+                    value === "documented_consent"
+                      ? previous.consent_recorded_at
+                      : "",
+                }))
+              }
+              options={contactBasisOptions}
+              disabled={saving}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
+            Contact Basis Details
+          </label>
+          <textarea
+            rows={3}
+            maxLength={500}
+            disabled={saving}
+            value={form.contact_basis_details}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                contact_basis_details: event.target.value,
+              }))
+            }
+            placeholder="Example: Customer requested a call about the Bitcoin Diamond item in Messenger on May 26, 2026."
+            className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 disabled:opacity-50 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+          />
+        </div>
+
+        {form.contact_basis === "documented_consent" && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Consent Reference"
+              value={form.consent_reference}
+              onChange={(value) =>
+                setForm((previous) => ({ ...previous, consent_reference: value }))
+              }
+              disabled={saving}
+              maxLength={300}
+            />
+
+            <Field
+              label="Consent Recorded Date/Time"
+              type="datetime-local"
+              value={form.consent_recorded_at}
+              onChange={(value) =>
+                setForm((previous) => ({
+                  ...previous,
+                  consent_recorded_at: value,
+                }))
+              }
+              disabled={saving}
+            />
+          </div>
+        )}
+
+        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+          Do not add contacts who did not request assistance or authorize contact.
+          A customer who requests no further calls must be marked Do Not Contact immediately.
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-50 dark:bg-white dark:text-black"
+        >
+          {saving ? "Creating..." : "Create Ready-to-Call Lead"}
+        </button>
+      </form>
+    </div>
   );
 }
 
@@ -500,6 +1086,7 @@ function LeadCallModal({
   savingCall,
   onClose,
   onOpenDialer,
+  onCopyAssistedLink,
   onSubmit,
   onDoNotContact,
 }: {
@@ -510,6 +1097,7 @@ function LeadCallModal({
   savingCall: boolean;
   onClose: () => void;
   onOpenDialer: () => void;
+  onCopyAssistedLink: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onDoNotContact: () => void;
 }) {
@@ -544,14 +1132,31 @@ function LeadCallModal({
                 <InfoRow label="Permission" value={titleCase(lead.call_permission_status)} />
               </div>
 
-              <button
-                type="button"
-                onClick={onOpenDialer}
-                disabled={!allowed}
-                className="mt-5 w-full rounded-2xl bg-violet-600 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Copy Number & Open HelloAirDial
-              </button>
+              <div className="mt-5 space-y-3">
+                <button
+                  type="button"
+                  onClick={onOpenDialer}
+                  disabled={!allowed}
+                  className="w-full rounded-2xl bg-violet-600 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Copy Number & Open HelloAirDial
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onCopyAssistedLink}
+                  disabled={!allowed || lead.status === "converted"}
+                  className="w-full rounded-2xl border border-violet-200 bg-white py-4 text-xs font-black uppercase tracking-[0.18em] text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-400/20 dark:bg-transparent dark:text-violet-200"
+                >
+                  Copy Single-Use Shopping Link
+                </button>
+              </div>
+
+              {allowed && lead.status !== "converted" && (
+                <p className="mt-3 text-xs text-[#725f4d] dark:text-gray-400">
+                  Send this link only to this customer. The first completed attributed order converts this lead and consumes the link.
+                </p>
+              )}
 
               {!allowed && (
                 <p className="mt-3 text-sm font-bold text-red-600 dark:text-red-300">
@@ -840,13 +1445,13 @@ function SelectField({
   value,
   onChange,
   options,
-  disabled,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
-  disabled: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div>

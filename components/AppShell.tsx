@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import ToastContainer from "@/components/ToastContainer";
+import ReferralTracker from "@/components/ReferralTracker";
 import type { ToastItem } from "@/lib/types";
 
 type Profile = {
@@ -20,8 +21,8 @@ type AgentAccess = {
 };
 
 type AppShellProps = {
-  title: string;
   children: React.ReactNode;
+  title?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
@@ -159,6 +160,8 @@ export default function AppShell({
             isApprovedAgent={isApprovedAgent}
             profileName={profile?.full_name || ""}
           />
+
+          {!isAdmin && <ReferralTracker isDark={isDark} />}
 
           {isAgentMode && (
             <div className="mx-auto max-w-7xl px-4 pt-5 md:px-6">

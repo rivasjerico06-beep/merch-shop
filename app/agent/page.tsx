@@ -83,15 +83,14 @@ export default function AgentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-const addToast = (message: string, type: ToastItem["type"] = "info") => {
-  const id = crypto.randomUUID();
+  const addToast = (message: string, type: ToastItem["type"] = "info") => {
+    const id = crypto.randomUUID();
+    setToasts((prev) => [...prev, { id, message, type }]);
 
-  setToasts((prev) => [...prev, { id, message, type }]);
-
-  setTimeout(() => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, 3000);
-};
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 3000);
+  };
 
   const formatUSD = (value: number | null | undefined) =>
     new Intl.NumberFormat("en-US", {
@@ -279,6 +278,21 @@ const addToast = (message: string, type: ToastItem["type"] = "info") => {
     }
   };
 
+  const copyReferralStoreLink = async () => {
+    if (!agentProfile?.referral_code) return;
+
+    const referralLink = `${window.location.origin}/products?ref=${encodeURIComponent(
+      agentProfile.referral_code
+    )}`;
+
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      addToast("Referral shopping link copied.", "success");
+    } catch {
+      addToast("Unable to copy referral shopping link.", "error");
+    }
+  };
+
   const metrics = useMemo(() => {
     const delivered = referredOrders.filter((order) => order.status === "delivered");
     const active = referredOrders.filter((order) =>
@@ -412,14 +426,29 @@ const addToast = (message: string, type: ToastItem["type"] = "info") => {
               <p className="mt-2 font-mono text-2xl font-black">
                 {agentProfile.referral_code || "Not generated"}
               </p>
-              <button
-                type="button"
-                onClick={copyReferralCode}
-                disabled={!agentProfile.referral_code}
-                className="mt-4 w-full rounded-full bg-violet-600 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 disabled:opacity-50"
-              >
-                Copy Referral Code
-              </button>
+              <div className="mt-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={copyReferralStoreLink}
+                  disabled={!agentProfile.referral_code}
+                  className="w-full rounded-full bg-violet-600 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 disabled:opacity-50"
+                >
+                  Copy Shopping Link
+                </button>
+
+                <button
+                  type="button"
+                  onClick={copyReferralCode}
+                  disabled={!agentProfile.referral_code}
+                  className="w-full rounded-full border border-violet-200 bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-violet-700 transition hover:bg-violet-100 disabled:opacity-50 dark:border-violet-400/20 dark:bg-transparent dark:text-violet-200"
+                >
+                  Copy Code Only
+                </button>
+              </div>
+
+              <p className="mt-3 text-xs text-[#725f4d] dark:text-gray-300">
+                Share the shopping link with customers you personally assist.
+              </p>
             </div>
           </div>
         </section>

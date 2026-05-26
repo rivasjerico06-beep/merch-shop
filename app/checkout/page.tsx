@@ -31,6 +31,18 @@ type ReferralMatch = {
   referral_code: string;
 };
 
+type StoredReferral = {
+  referralCode: string;
+  agentName: string;
+  savedAt: number;
+  expiresAt: number;
+  assistedLeadToken?: string | null;
+  isLeadSpecific?: boolean;
+};
+
+const REFERRAL_STORAGE_KEY = "merch-agent-referral";
+const ASSISTED_LINK_SESSION_KEY = "merch-assisted-lead-referral";
+
 type CustomerCoupon = {
   id: string;
   coupon_code: string;
@@ -73,6 +85,8 @@ export default function CheckoutPage() {
   const [validatedReferral, setValidatedReferral] =
     useState<ReferralMatch | null>(null);
   const [checkingReferral, setCheckingReferral] = useState(false);
+  const [assistedLeadToken, setAssistedLeadToken] = useState<string | null>(null);
+  const [isLeadSpecificReferral, setIsLeadSpecificReferral] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<CustomerCoupon | null>(null);
   const [checkingCoupon, setCheckingCoupon] = useState(false);
@@ -204,10 +218,12 @@ export default function CheckoutPage() {
 
   const validateReferralCode = async ({
     silent = false,
+    codeOverride,
   }: {
     silent?: boolean;
+    codeOverride?: string;
   } = {}): Promise<ReferralMatch | null> => {
-    const code = referralCode.trim().toUpperCase();
+    const code = (codeOverride ?? referralCode).trim().toUpperCase();
 
     if (!code) {
       setValidatedReferral(null);
@@ -227,18 +243,33 @@ export default function CheckoutPage() {
 
     setCheckingReferral(false);
 
-    const match = Array.isArray(data) ? (data[0] as ReferralMatch | undefined) : undefined;
+    const match = Array.isArray(data)
+      ? (data[0] as ReferralMatch | undefined)
+      : undefined;
 
     if (error || !match) {
+      localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+      setAssistedLeadToken(null);
+      setIsLeadSpecificReferral(false);
+      setReferralCode("");
       setValidatedReferral(null);
       if (!silent) addToast("Invalid or inactive agent referral code.", "error");
       return null;
     }
 
     if (match.agent_id === userId) {
+      localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+      setAssistedLeadToken(null);
+      setIsLeadSpecificReferral(false);
+      setReferralCode("");
       setValidatedReferral(null);
       if (!silent) {
-        addToast("You cannot apply your own referral code to your personal order.", "error");
+        addToast(
+          "You cannot apply your own referral code to your personal order.",
+          "error"
+        );
       }
       return null;
     }
@@ -246,12 +277,87 @@ export default function CheckoutPage() {
     setReferralCode(match.referral_code);
     setValidatedReferral(match);
 
+    if (!assistedLeadToken) {
+      localStorage.setItem(
+        REFERRAL_STORAGE_KEY,
+        JSON.stringify({
+          referralCode: match.referral_code,
+          agentName: match.agent_name,
+          savedAt: Date.now(),
+          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          assistedLeadToken: null,
+          isLeadSpecific: false,
+        } satisfies StoredReferral)
+      );
+    }
+
     if (!silent) {
       addToast(`Referral code applied: ${match.agent_name}`, "success");
     }
 
     return match;
   };
+
+  useEffect(() => {
+    if (!userId || referralCode || validatedReferral) return;
+
+    const assistedValue = sessionStorage.getItem(ASSISTED_LINK_SESSION_KEY);
+
+    if (assistedValue) {
+      try {
+        const stored = JSON.parse(assistedValue) as StoredReferral;
+
+        if (
+          !stored.referralCode ||
+          !stored.assistedLeadToken ||
+          !stored.expiresAt ||
+          stored.expiresAt <= Date.now()
+        ) {
+          sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+        } else {
+          setAssistedLeadToken(stored.assistedLeadToken);
+          setIsLeadSpecificReferral(true);
+          setReferralCode(stored.referralCode);
+          void validateReferralCode({
+            silent: true,
+            codeOverride: stored.referralCode,
+          });
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+      }
+    }
+
+    const storedValue = localStorage.getItem(REFERRAL_STORAGE_KEY);
+
+    if (!storedValue) return;
+
+    try {
+      const stored = JSON.parse(storedValue) as StoredReferral;
+
+      if (
+        !stored.referralCode ||
+        !stored.expiresAt ||
+        stored.expiresAt <= Date.now()
+      ) {
+        localStorage.removeItem(REFERRAL_STORAGE_KEY);
+        return;
+      }
+
+      setAssistedLeadToken(null);
+      setIsLeadSpecificReferral(false);
+      setReferralCode(stored.referralCode);
+      void validateReferralCode({
+        silent: true,
+        codeOverride: stored.referralCode,
+      });
+    } catch {
+      localStorage.removeItem(REFERRAL_STORAGE_KEY);
+    }
+    // Restore a referral once after the signed-in customer is identified.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const validateCouponCode = async ({
     silent = false,
@@ -468,6 +574,7 @@ export default function CheckoutPage() {
       input_payment_method: parsed.payment_method,
       input_agent_referral_code: verifiedReferral?.referral_code || null,
       input_coupon_code: verifiedCoupon?.coupon_code || null,
+      input_assisted_lead_token: assistedLeadToken || null,
     });
 
     const checkoutResult = Array.isArray(data)
@@ -477,7 +584,15 @@ export default function CheckoutPage() {
     if (error || !checkoutResult) {
       const message = error?.message || "";
 
-      if (message.includes("own referral code")) {
+      if (message.includes("assisted shopping link")) {
+        sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+        setAssistedLeadToken(null);
+        setIsLeadSpecificReferral(false);
+        addToast(
+          "This assisted-shopping link is invalid, expired, or already used. Remove it or request a new link from your agent.",
+          "error"
+        );
+      } else if (message.includes("own referral code")) {
         addToast(
           "You cannot apply your own referral code to your personal order.",
           "error"
@@ -535,6 +650,10 @@ export default function CheckoutPage() {
     });
 
     setCartItems([]);
+    localStorage.removeItem(REFERRAL_STORAGE_KEY);
+    sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+    setAssistedLeadToken(null);
+    setIsLeadSpecificReferral(false);
     setReferralCode("");
     setValidatedReferral(null);
     setCouponCode("");
@@ -743,6 +862,10 @@ export default function CheckoutPage() {
               <input
                 value={referralCode}
                 onChange={(e) => {
+                  localStorage.removeItem(REFERRAL_STORAGE_KEY);
+                  sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+                  setAssistedLeadToken(null);
+                  setIsLeadSpecificReferral(false);
                   setReferralCode(e.target.value.toUpperCase());
                   setValidatedReferral(null);
                 }}
@@ -762,11 +885,32 @@ export default function CheckoutPage() {
             </div>
 
             {validatedReferral && (
-              <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 dark:border-green-400/20 dark:bg-green-400/10 dark:text-green-200">
-                <p className="font-black">Referral applied</p>
-                <p className="mt-1">
-                  Guided by: {validatedReferral.agent_name} · {validatedReferral.referral_code}
-                </p>
+              <div className="mt-4 flex flex-col justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 dark:border-green-400/20 dark:bg-green-400/10 dark:text-green-200 sm:flex-row sm:items-center">
+                <div>
+                  <p className="font-black">
+                    {isLeadSpecificReferral
+                      ? "Personal assisted-shopping link applied"
+                      : "Referral applied"}
+                  </p>
+                  <p className="mt-1">
+                    Guided by: {validatedReferral.agent_name} · {validatedReferral.referral_code}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem(REFERRAL_STORAGE_KEY);
+                    sessionStorage.removeItem(ASSISTED_LINK_SESSION_KEY);
+                    setAssistedLeadToken(null);
+                    setIsLeadSpecificReferral(false);
+                    setReferralCode("");
+                    setValidatedReferral(null);
+                  }}
+                  className="rounded-full border border-green-300 px-4 py-2 text-xs font-black uppercase tracking-[0.15em] transition hover:bg-green-700 hover:text-white dark:border-green-400/20"
+                >
+                  Remove
+                </button>
               </div>
             )}
           </div>

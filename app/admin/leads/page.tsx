@@ -76,6 +76,30 @@ type ConversionMetric = {
   delivered_revenue: number;
 };
 
+type ReviewRequest = {
+  id: string;
+  requested_by: string;
+  related_lead_id: string | null;
+  request_type: string;
+  phone_normalized: string | null;
+  reason: string;
+  status: string;
+  resolution_notes: string | null;
+  created_at: string;
+};
+
+type OperationalException = {
+  exception_key: string;
+  exception_type: string;
+  priority: "high" | "medium" | "low";
+  lead_id: string;
+  assigned_agent_id: string | null;
+  customer_name: string;
+  phone: string;
+  detail: string;
+  occurred_at: string;
+};
+
 type LeadForm = {
   customer_name: string;
   phone: string;
@@ -111,6 +135,8 @@ export default function AdminLeadsPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [orders, setOrders] = useState<AttributedOrder[]>([]);
   const [conversionMetrics, setConversionMetrics] = useState<ConversionMetric[]>([]);
+  const [reviewRequests, setReviewRequests] = useState<ReviewRequest[]>([]);
+  const [operationalExceptions, setOperationalExceptions] = useState<OperationalException[]>([]);
   const [form, setForm] = useState<LeadForm>(emptyForm);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [search, setSearch] = useState("");
@@ -159,8 +185,16 @@ export default function AdminLeadsPage() {
       return;
     }
 
-    const [agentsResult, customersResult, leadsResult, activitiesResult, ordersResult, metricResult] =
-      await Promise.all([
+    const [
+      agentsResult,
+      customersResult,
+      leadsResult,
+      activitiesResult,
+      ordersResult,
+      metricResult,
+      requestResult,
+      exceptionResult,
+    ] = await Promise.all([
         supabase.from("agent_profiles")
           .select("user_id, display_name, referral_code")
           .eq("status", "approved").order("display_name"),
@@ -178,11 +212,34 @@ export default function AdminLeadsPage() {
           .not("agent_id", "is", null)
           .order("created_at", { ascending: false }),
         supabase.rpc("get_admin_agent_lead_conversion_metrics"),
+        supabase.from("lead_review_requests")
+          .select("id, requested_by, related_lead_id, request_type, phone_normalized, reason, status, resolution_notes, created_at")
+          .eq("status", "open")
+          .order("created_at", { ascending: false }),
+        supabase.rpc("get_admin_operational_lead_exceptions"),
       ]);
 
-    if (agentsResult.error || customersResult.error || leadsResult.error || activitiesResult.error || ordersResult.error || metricResult.error) {
+    if (
+      agentsResult.error ||
+      customersResult.error ||
+      leadsResult.error ||
+      activitiesResult.error ||
+      ordersResult.error ||
+      metricResult.error ||
+      requestResult.error ||
+      exceptionResult.error
+    ) {
       addToast("Some lead-management information could not be loaded.", "error");
-      console.error({ agentsResult, customersResult, leadsResult, activitiesResult, ordersResult, metricResult });
+      console.warn("Admin lead data load issue:", {
+        agentsResult,
+        customersResult,
+        leadsResult,
+        activitiesResult,
+        ordersResult,
+        metricResult,
+        requestResult,
+        exceptionResult,
+      });
     }
 
     setAgents((agentsResult.data || []) as ApprovedAgent[]);
@@ -191,6 +248,8 @@ export default function AdminLeadsPage() {
     setActivities((activitiesResult.data || []) as Activity[]);
     setOrders((ordersResult.data || []) as AttributedOrder[]);
     setConversionMetrics((metricResult.data || []) as ConversionMetric[]);
+    setReviewRequests((requestResult.data || []) as ReviewRequest[]);
+    setOperationalExceptions((exceptionResult.data || []) as OperationalException[]);
     setLoading(false);
   };
 
@@ -383,6 +442,40 @@ export default function AdminLeadsPage() {
     setSavingLeadId(null);
   };
 
+  const resolveReviewRequest = async (
+    request: ReviewRequest,
+    status: "resolved" | "rejected"
+  ) => {
+    const note = window.prompt(
+      status === "resolved" ? "Resolution note:" : "Reason for rejecting this request:",
+      status === "resolved" ? "Reviewed and resolved by admin." : "Request rejected after review."
+    );
+
+    if (note === null) return;
+
+    if (note.trim().length < 5) {
+      addToast("Resolution note must be at least 5 characters.", "error");
+      return;
+    }
+
+    const { error } = await supabase.rpc("resolve_lead_review_request", {
+      input_request_id: request.id,
+      input_resolution_status: status,
+      input_resolution_notes: note.trim(),
+    });
+
+    if (error) {
+      addToast(error.message || "Unable to resolve review request.", "error");
+      return;
+    }
+
+    addToast(
+      status === "resolved" ? "Review request resolved." : "Review request rejected.",
+      "success"
+    );
+    await loadPage();
+  };
+
   const markDoNotContact = async (lead: Lead) => {
     const reason = window.prompt("Reason for Do Not Contact:", "Customer requested no further calls");
     if (reason === null) return;
@@ -426,6 +519,132 @@ export default function AdminLeadsPage() {
         <StatCard label="DNC" value={summary.dnc} danger />
         <StatCard label="Order Conversion" value={`${summary.contactToOrder.toFixed(1)}%`} />
         <StatCard label="Delivered Revenue" value={formatUSD(summary.deliveredRevenue)} />
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <div className="rounded-[2rem] border border-red-200 bg-white p-6 shadow-sm dark:border-red-400/20 dark:bg-white/[0.04]">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-red-600">
+                Admin Exceptions
+              </p>
+              <h2 className="mt-2 text-2xl font-black">Operational Alerts</h2>
+            </div>
+            <span className="rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white">
+              {operationalExceptions.length}
+            </span>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {operationalExceptions.length === 0 ? (
+              <p className="rounded-2xl bg-green-50 p-5 text-sm text-green-800 dark:bg-green-400/10 dark:text-green-200">
+                No operational exceptions require attention.
+              </p>
+            ) : (
+              operationalExceptions.slice(0, 8).map((item) => (
+                <div
+                  key={item.exception_key}
+                  className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10"
+                >
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="font-black">{item.customer_name}</p>
+                      <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
+                        {titleCase(item.exception_type)} · {agentName(item.assigned_agent_id)}
+                      </p>
+                    </div>
+                    <span
+                      className={`h-fit rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
+                        item.priority === "high" ? "bg-red-600" : "bg-amber-500 text-black"
+                      }`}
+                    >
+                      {item.priority}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-[#725f4d] dark:text-gray-300">
+                    {item.detail}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lead = leads.find((row) => row.id === item.lead_id);
+                      if (lead) setSelectedLead(lead);
+                    }}
+                    className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-violet-600"
+                  >
+                    Open Lead Details
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-600">
+                Agent Requests
+              </p>
+              <h2 className="mt-2 text-2xl font-black">Review Queue</h2>
+            </div>
+            <span className="rounded-full bg-violet-600 px-4 py-2 text-xs font-black text-white">
+              {reviewRequests.length}
+            </span>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {reviewRequests.length === 0 ? (
+              <p className="rounded-2xl bg-[#f8efe4] p-5 text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+                No open agent review requests.
+              </p>
+            ) : (
+              reviewRequests.slice(0, 8).map((request) => (
+                <div
+                  key={request.id}
+                  className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10"
+                >
+                  <p className="font-black">
+                    {titleCase(request.request_type)}
+                  </p>
+                  <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
+                    Requested by {agentName(request.requested_by)} ·{" "}
+                    {new Date(request.created_at).toLocaleString()}
+                  </p>
+                  <p className="mt-3 text-sm">{request.reason}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => resolveReviewRequest(request, "resolved")}
+                      className="rounded-full bg-green-600 px-4 py-2 text-xs font-bold text-white"
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resolveReviewRequest(request, "rejected")}
+                      className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white"
+                    >
+                      Reject
+                    </button>
+                    {request.related_lead_id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const lead = leads.find((row) => row.id === request.related_lead_id);
+                          if (lead) setSelectedLead(lead);
+                        }}
+                        className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-bold"
+                      >
+                        Open Lead
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
