@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import ToastContainer, { ToastItem } from "@/components/ToastContainer";
+import ToastContainer from "@/components/ToastContainer";
+import type { ToastItem } from "@/lib/types";
 
 type Profile = {
   id: string;
@@ -19,8 +20,8 @@ type AgentAccess = {
 };
 
 type AppShellProps = {
+  title: string;
   children: React.ReactNode;
-  title?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;

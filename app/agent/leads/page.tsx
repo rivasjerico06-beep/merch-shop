@@ -88,7 +88,7 @@ export default function AgentLeadsPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(
       () => setToasts((prev) => prev.filter((toast) => toast.id !== id)),

@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  CartesianGrid,
 } from "recharts";
 import AppShell from "@/components/AppShell";
 import { supabase } from "@/lib/supabase";
@@ -23,50 +26,72 @@ type AgentProfile = {
   display_name: string | null;
   phone: string | null;
   notes: string | null;
+  approved_by: string | null;
   approved_at: string | null;
   created_at: string;
+  updated_at: string | null;
 };
 
-type AgentOrder = {
+type ReferredOrder = {
   id: string;
-  agent_id: string | null;
   status: string | null;
   total_amount: number | null;
   full_name: string | null;
+  payment_method: string | null;
+  agent_referral_code: string | null;
   created_at: string;
 };
 
-type AgentRow = AgentProfile & {
-  allOrders: number;
-  deliveredOrders: number;
-  activeOrders: number;
-  cancelledOrders: number;
-  deliveredRevenue: number;
-  pipelineValue: number;
-  deliveredRate: number;
+type TrendRow = {
+  label: string;
+  revenue: number;
+  orders: number;
 };
 
-type StatusFilter = "all" | "pending" | "approved" | "rejected" | "suspended";
+type StatusRow = {
+  name: string;
+  value: number;
+};
 
-export default function AdminAgentsPage() {
-  const [adminProfile, setAdminProfile] = useState<Profile | null>(null);
+type LeadConversionMetrics = {
+  total_assigned_leads: number;
+  contacted_leads: number;
+  placed_order_conversions: number;
+  delivered_order_conversions: number;
+  contact_to_order_percent: number;
+  contact_to_delivered_percent: number;
+  delivered_revenue: number;
+};
+
+const statusColors = ["#7c3aed", "#16a34a", "#f59e0b", "#2563eb", "#dc2626", "#52525b"];
+
+const emptyAgentForm = {
+  display_name: "",
+  phone: "",
+  notes: "",
+};
+
+export default function AgentPage() {
+  const [userId, setUserId] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [agents, setAgents] = useState<AgentProfile[]>([]);
-  const [orders, setOrders] = useState<AgentOrder[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
+  const [referredOrders, setReferredOrders] = useState<ReferredOrder[]>([]);
+  const [leadMetrics, setLeadMetrics] = useState<LeadConversionMetrics | null>(null);
+  const [agentForm, setAgentForm] = useState(emptyAgentForm);
   const [loading, setLoading] = useState(true);
-  const [savingAgentId, setSavingAgentId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, 3000);
-  };
+const addToast = (message: string, type: ToastItem["type"] = "info") => {
+  const id = crypto.randomUUID();
+
+  setToasts((prev) => [...prev, { id, message, type }]);
+
+  setTimeout(() => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, 3000);
+};
 
   const formatUSD = (value: number | null | undefined) =>
     new Intl.NumberFormat("en-US", {
@@ -74,7 +99,7 @@ export default function AdminAgentsPage() {
       currency: "USD",
     }).format(Number(value || 0));
 
-  const loadAgents = async () => {
+  const loadAgentPage = async () => {
     setLoading(true);
 
     const {
@@ -82,558 +107,642 @@ export default function AdminAgentsPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      setAdminProfile(null);
+      setUserId("");
       setUserEmail("");
+      setProfile(null);
+      setAgentProfile(null);
+      setReferredOrders([]);
+      setLeadMetrics(null);
       setLoading(false);
       return;
     }
 
+    setUserId(user.id);
     setUserEmail(user.email || "");
 
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profileData) {
-      addToast("Unable to load admin profile.", "error");
-      setAdminProfile(null);
-      setLoading(false);
-      return;
-    }
-
-    setAdminProfile(profileData as Profile);
-
-    if (profileData.role !== "admin") {
-      setLoading(false);
-      return;
-    }
-
-    const [agentResult, orderResult] = await Promise.all([
+    const [profileResult, agentResult, ordersResult, metricsResult] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
         .from("agent_profiles")
-        .select(
-          "id, user_id, referral_code, status, display_name, phone, notes, approved_at, created_at"
-        )
-        .order("created_at", { ascending: false }),
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle(),
       supabase
         .from("orders")
-        .select("id, agent_id, status, total_amount, full_name, created_at")
-        .not("agent_id", "is", null)
+        .select(
+          "id, status, total_amount, full_name, payment_method, agent_referral_code, created_at"
+        )
+        .eq("agent_id", user.id)
         .order("created_at", { ascending: false }),
+      supabase.rpc("get_my_lead_conversion_metrics"),
     ]);
 
-    if (agentResult.error) {
-      addToast("Unable to load agents.", "error");
-      console.error("Agents load error:", agentResult.error);
-    } else {
-      setAgents((agentResult.data || []) as AgentProfile[]);
+    if (profileResult.data) {
+      setProfile(profileResult.data as Profile);
     }
 
-    if (orderResult.error) {
-      addToast("Unable to load attributed sales.", "error");
-      console.error("Attributed orders load error:", orderResult.error);
+    if (agentResult.error) {
+      addToast("Unable to load agent access", "error");
+      console.error("Agent profile load error:", agentResult.error);
+    }
+
+    if (agentResult.data) {
+      const loadedAgent = agentResult.data as AgentProfile;
+      setAgentProfile(loadedAgent);
+      setAgentForm({
+        display_name: loadedAgent.display_name || "",
+        phone: loadedAgent.phone || "",
+        notes: loadedAgent.notes || "",
+      });
     } else {
-      setOrders((orderResult.data || []) as AgentOrder[]);
+      setAgentProfile(null);
+      setAgentForm({
+        display_name: profileResult.data?.full_name || "",
+        phone: profileResult.data?.phone || "",
+        notes: "",
+      });
+    }
+
+    if (ordersResult.error) {
+      if (agentResult.data?.status === "approved") {
+        addToast("Unable to load guided orders", "error");
+        console.error("Guided order load error:", ordersResult.error);
+      }
+    } else {
+      setReferredOrders((ordersResult.data || []) as ReferredOrder[]);
+    }
+
+    if (metricsResult.error) {
+      if (agentResult.data?.status === "approved") {
+        addToast("Unable to load lead conversion metrics", "error");
+        console.error("Lead conversion metrics error:", metricsResult.error);
+      }
+      setLeadMetrics(null);
+    } else {
+      const rows = (metricsResult.data || []) as LeadConversionMetrics[];
+      setLeadMetrics(rows[0] || null);
     }
 
     setLoading(false);
   };
 
   useEffect(() => {
-    loadAgents();
+    loadAgentPage();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadAgentPage();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const agentRows = useMemo<AgentRow[]>(() => {
-    return agents.map((agent) => {
-      const guidedOrders = orders.filter((order) => order.agent_id === agent.user_id);
-      const delivered = guidedOrders.filter((order) => order.status === "delivered");
-      const active = guidedOrders.filter((order) =>
-        ["pending", "confirmed", "packed", "shipped"].includes(order.status || "")
+  const submitApplication = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!userId) {
+      addToast("Please log in as a customer first.", "error");
+      return;
+    }
+
+    const displayName = agentForm.display_name.trim();
+    const phone = agentForm.phone.trim();
+    const notes = agentForm.notes.trim();
+
+    if (displayName.length < 2 || displayName.length > 100) {
+      addToast("Display name must be between 2 and 100 characters.", "error");
+      return;
+    }
+
+    if (phone.length > 30) {
+      addToast("Phone number is too long.", "error");
+      return;
+    }
+
+    if (notes.length > 1000) {
+      addToast("Notes must be 1,000 characters or fewer.", "error");
+      return;
+    }
+
+    if (
+      agentProfile &&
+      agentProfile.status !== "pending"
+    ) {
+      addToast("This application can no longer be edited.", "error");
+      return;
+    }
+
+    setSubmitting(true);
+
+    const result = agentProfile
+      ? await supabase
+          .from("agent_profiles")
+          .update({
+            display_name: displayName,
+            phone,
+            notes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId)
+      : await supabase.from("agent_profiles").insert({
+          user_id: userId,
+          display_name: displayName,
+          phone,
+          notes,
+          status: "pending",
+          updated_at: new Date().toISOString(),
+        });
+
+    if (result.error) {
+      addToast("Unable to submit agent application.", "error");
+      console.error("Agent application error:", result.error);
+    } else {
+      addToast(
+        agentProfile ? "Application updated." : "Agent application submitted.",
+        "success"
       );
-      const cancelled = guidedOrders.filter((order) => order.status === "cancelled");
-
-      const deliveredRevenue = delivered.reduce(
-        (total, order) => total + Number(order.total_amount || 0),
-        0
-      );
-      const pipelineValue = active.reduce(
-        (total, order) => total + Number(order.total_amount || 0),
-        0
-      );
-
-      return {
-        ...agent,
-        allOrders: guidedOrders.length,
-        deliveredOrders: delivered.length,
-        activeOrders: active.length,
-        cancelledOrders: cancelled.length,
-        deliveredRevenue,
-        pipelineValue,
-        deliveredRate:
-          guidedOrders.length > 0 ? (delivered.length / guidedOrders.length) * 100 : 0,
-      };
-    });
-  }, [agents, orders]);
-
-  const rankedAgents = useMemo(
-    () =>
-      [...agentRows].sort(
-        (left, right) => right.deliveredRevenue - left.deliveredRevenue
-      ),
-    [agentRows]
-  );
-
-  const filteredAgents = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return rankedAgents.filter((agent) => {
-      const matchesSearch =
-        !query ||
-        (agent.display_name || "").toLowerCase().includes(query) ||
-        (agent.phone || "").toLowerCase().includes(query) ||
-        (agent.referral_code || "").toLowerCase().includes(query);
-
-      const matchesStatus =
-        statusFilter === "all" || agent.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [rankedAgents, search, statusFilter]);
-
-  const summary = useMemo(() => {
-    const approvedAgents = agentRows.filter((agent) => agent.status === "approved");
-    const pendingApplications = agentRows.filter((agent) => agent.status === "pending");
-    const deliveredRevenue = agentRows.reduce(
-      (total, agent) => total + agent.deliveredRevenue,
-      0
-    );
-    const deliveredOrders = agentRows.reduce(
-      (total, agent) => total + agent.deliveredOrders,
-      0
-    );
-    const allGuidedOrders = agentRows.reduce(
-      (total, agent) => total + agent.allOrders,
-      0
-    );
-
-    return {
-      totalAgents: agentRows.length,
-      approvedAgents: approvedAgents.length,
-      pendingApplications: pendingApplications.length,
-      deliveredRevenue,
-      deliveredOrders,
-      deliveredRate:
-        allGuidedOrders > 0 ? (deliveredOrders / allGuidedOrders) * 100 : 0,
-    };
-  }, [agentRows]);
-
-  const chartData = rankedAgents
-    .filter((agent) => agent.status === "approved" || agent.deliveredRevenue > 0)
-    .slice(0, 7)
-    .map((agent) => ({
-      name: agent.display_name || "Agent",
-      revenue: Number(agent.deliveredRevenue.toFixed(2)),
-    }));
-
-  const approveAgent = async (agentId: string) => {
-    setSavingAgentId(agentId);
-
-    const { error } = await supabase.rpc("approve_agent", {
-      agent_profile_id: agentId,
-    });
-
-    if (error) {
-      addToast("Failed to approve agent.", "error");
-      console.error("Approve agent error:", error);
-    } else {
-      addToast("Agent approved and referral code activated.", "success");
-      await loadAgents();
+      await loadAgentPage();
     }
 
-    setSavingAgentId(null);
+    setSubmitting(false);
   };
 
-  const rejectAgent = async (agentId: string) => {
-    if (!window.confirm("Reject this pending agent application?")) return;
-
-    setSavingAgentId(agentId);
-
-    const { error } = await supabase
-      .from("agent_profiles")
-      .update({
-        status: "rejected",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", agentId)
-      .eq("status", "pending");
-
-    if (error) {
-      addToast("Failed to reject agent.", "error");
-      console.error("Reject agent error:", error);
-    } else {
-      addToast("Agent application rejected.", "info");
-      await loadAgents();
-    }
-
-    setSavingAgentId(null);
-  };
-
-  const suspendAgent = async (agentId: string) => {
-    if (!window.confirm("Suspend this agent's referral access?")) return;
-
-    setSavingAgentId(agentId);
-
-    const { error } = await supabase.rpc("suspend_agent", {
-      agent_profile_id: agentId,
-    });
-
-    if (error) {
-      addToast("Failed to suspend agent.", "error");
-      console.error("Suspend agent error:", error);
-    } else {
-      addToast("Agent referral access suspended.", "info");
-      await loadAgents();
-    }
-
-    setSavingAgentId(null);
-  };
-
-  const reactivateAgent = async (agentId: string) => {
-    setSavingAgentId(agentId);
-
-    const { error } = await supabase.rpc("approve_agent", {
-      agent_profile_id: agentId,
-    });
-
-    if (error) {
-      addToast("Failed to reactivate agent.", "error");
-      console.error("Reactivate agent error:", error);
-    } else {
-      addToast("Agent referral access reactivated.", "success");
-      await loadAgents();
-    }
-
-    setSavingAgentId(null);
-  };
-
-  const copyReferralCode = async (code: string | null) => {
-    if (!code) return;
+  const copyReferralCode = async () => {
+    if (!agentProfile?.referral_code) return;
 
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(agentProfile.referral_code);
       addToast("Referral code copied.", "success");
     } catch {
       addToast("Unable to copy referral code.", "error");
     }
   };
 
+  const metrics = useMemo(() => {
+    const delivered = referredOrders.filter((order) => order.status === "delivered");
+    const active = referredOrders.filter((order) =>
+      ["pending", "confirmed", "packed", "shipped"].includes(order.status || "")
+    );
+    const cancelled = referredOrders.filter((order) => order.status === "cancelled");
+
+    const deliveredSales = delivered.reduce(
+      (total, order) => total + Number(order.total_amount || 0),
+      0
+    );
+    const activeValue = active.reduce(
+      (total, order) => total + Number(order.total_amount || 0),
+      0
+    );
+
+    return {
+      allOrders: referredOrders.length,
+      deliveredOrders: delivered.length,
+      deliveredSales,
+      activeOrders: active.length,
+      activeValue,
+      cancelledOrders: cancelled.length,
+      deliveredRate:
+        referredOrders.length > 0
+          ? (delivered.length / referredOrders.length) * 100
+          : 0,
+    };
+  }, [referredOrders]);
+
+  const revenueTrend = useMemo<TrendRow[]>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const result: TrendRow[] = [];
+
+    for (let offset = 29; offset >= 0; offset -= 1) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - offset);
+      const key = day.toISOString().slice(0, 10);
+
+      const ordersForDay = referredOrders.filter(
+        (order) =>
+          order.status === "delivered" &&
+          new Date(order.created_at).toISOString().slice(0, 10) === key
+      );
+
+      result.push({
+        label: day.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        revenue: ordersForDay.reduce(
+          (total, order) => total + Number(order.total_amount || 0),
+          0
+        ),
+        orders: ordersForDay.length,
+      });
+    }
+
+    return result;
+  }, [referredOrders]);
+
+  const statusData = useMemo<StatusRow[]>(() => {
+    const groups = new Map<string, number>();
+
+    referredOrders.forEach((order) => {
+      const name = titleCase(order.status || "unknown");
+      groups.set(name, (groups.get(name) || 0) + 1);
+    });
+
+    return Array.from(groups.entries()).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [referredOrders]);
+
   if (loading) {
     return (
-      <AppShell title="Admin Agents" toasts={toasts}>
-        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-        </div>
+      <AppShell title="Agent Portal" toasts={toasts}>
+        <LoadingCard />
       </AppShell>
     );
   }
 
-  if (!adminProfile) {
+  if (!userId) {
     return (
-      <AppShell title="Admin Agents" toasts={toasts}>
-        <AccessCard
-          title="Admin Login"
-          body="Please log in with an admin account to manage agent access."
-          href="/login?redirect=/admin/agents"
-          button="Log In as Admin"
-        />
+      <AppShell title="Agent Portal" toasts={toasts}>
+        <section className="mx-auto max-w-2xl rounded-[2.5rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            Customer Login Required
+          </p>
+          <h1 className="mt-4 text-4xl font-black">Apply as an Agent</h1>
+          <p className="mt-4 text-[#725f4d] dark:text-gray-400">
+            Create or log in to a customer account first, then submit your agent
+            application. Approved agents remain able to shop personally.
+          </p>
+          <Link
+            href="/login?redirect=/agent"
+            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+          >
+            Log In to Apply
+          </Link>
+        </section>
       </AppShell>
     );
   }
 
-  if (adminProfile.role !== "admin") {
+  if (agentProfile?.status === "approved") {
     return (
-      <AppShell title="Admin Agents" toasts={toasts}>
-        <AccessCard
-          title="Admin Only"
-          body={`This page is restricted to admin accounts. Current account: ${
-            userEmail || "unknown"
-          }.`}
-          href="/"
-          button="Back to Shop"
-          danger
-        />
-      </AppShell>
-    );
-  }
+      <AppShell title="Agent Portal" toasts={toasts}>
+        <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+                Agent Performance
+              </p>
+              <h1 className="mt-3 text-4xl font-black md:text-6xl">
+                Welcome, {agentProfile.display_name || profile?.full_name || "Agent"}
+              </h1>
+              <p className="mt-3 max-w-2xl text-[#725f4d] dark:text-gray-400">
+                Monitor guided customer orders and completed sales attributed to
+                your referral code.
+              </p>
+            </div>
 
-  return (
-    <AppShell
-      title="Admin Agents"
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search agent, phone, or referral code..."
-      toasts={toasts}
-    >
-      <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
-              Agent Management
-            </p>
-            <h1 className="mt-3 text-4xl font-black md:text-6xl">
-              Agent Performance
-            </h1>
-            <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
-              Approve applications, monitor referral-attributed delivered sales,
-              and rank agent performance using verified orders.
-            </p>
+            <div className="min-w-[290px] rounded-3xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-400/20 dark:bg-violet-400/10">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">
+                Referral Code
+              </p>
+              <p className="mt-2 font-mono text-2xl font-black">
+                {agentProfile.referral_code || "Not generated"}
+              </p>
+              <button
+                type="button"
+                onClick={copyReferralCode}
+                disabled={!agentProfile.referral_code}
+                className="mt-4 w-full rounded-full bg-violet-600 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 disabled:opacity-50"
+              >
+                Copy Referral Code
+              </button>
+            </div>
           </div>
+        </section>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={loadAgents}
-              className="rounded-full border border-[#cdbba7] bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.18em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
-            >
-              Refresh
-            </button>
+        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <StatCard label="Guided Orders" value={metrics.allOrders.toString()} />
+          <StatCard label="Delivered Sales" value={formatUSD(metrics.deliveredSales)} highlight />
+          <StatCard label="Delivered Orders" value={metrics.deliveredOrders.toString()} />
+          <StatCard label="Active Pipeline" value={formatUSD(metrics.activeValue)} />
+          <StatCard label="Delivered Rate" value={`${metrics.deliveredRate.toFixed(0)}%`} />
+        </section>
+
+        <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <h2 className="text-2xl font-black">Lead Conversion Analytics</h2>
+              <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
+                Based on leads assigned to you and HelloAirDial call outcomes recorded in the portal.
+              </p>
+            </div>
             <Link
-              href="/admin/sales"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+              href="/agent/leads"
+              className="rounded-full bg-violet-600 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700"
             >
-              Sales Analytics
+              Open My Leads
             </Link>
           </div>
-        </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <StatCard
+              label="Assigned Leads"
+              value={String(Number(leadMetrics?.total_assigned_leads || 0))}
+            />
+            <StatCard
+              label="Contacted"
+              value={String(Number(leadMetrics?.contacted_leads || 0))}
+            />
+            <StatCard
+              label="Placed Orders"
+              value={String(Number(leadMetrics?.placed_order_conversions || 0))}
+            />
+            <StatCard
+              label="Delivered Conversions"
+              value={String(Number(leadMetrics?.delivered_order_conversions || 0))}
+            />
+            <StatCard
+              label="Contact-to-Order"
+              value={`${Number(leadMetrics?.contact_to_order_percent || 0).toFixed(1)}%`}
+              highlight
+            />
+            <StatCard
+              label="Contact-to-Delivered"
+              value={`${Number(leadMetrics?.contact_to_delivered_percent || 0).toFixed(1)}%`}
+            />
+          </div>
+
+          <p className="mt-5 rounded-2xl bg-[#f8efe4] p-4 text-xs text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+            Contact-to-Order rate is calculated from contacted assigned leads that later place a verified referral-attributed order. Delivered conversion is shown separately because placed orders can still be pending or cancelled.
+          </p>
+        </section>
+
+        <section className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+          <ChartCard
+            title="Delivered Sales Trend"
+            subtitle="Revenue attributed to your referral code over the last 30 days."
+          >
+            <ResponsiveContainer width="100%" height={285}>
+              <LineChart data={revenueTrend} margin={{ top: 12, right: 12, left: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7ded2" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24} />
+                <YAxis tickFormatter={(value) => `$${value}`} width={64} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value) => formatUSD(Number(value))} />
+                <Line
+                  dataKey="revenue"
+                  name="Delivered Sales"
+                  stroke="#7c3aed"
+                  strokeWidth={3}
+                  dot={false}
+                  type="monotone"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Order Status"
+            subtitle="Status of purchases guided by your referral code."
+          >
+            {statusData.length === 0 ? (
+              <EmptyState text="No guided orders yet." />
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={205}>
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={50}
+                      outerRadius={82}
+                      paddingAngle={3}
+                    >
+                      {statusData.map((row, index) => (
+                        <Cell
+                          key={row.name}
+                          fill={statusColors[index % statusColors.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                <div className="space-y-2">
+                  {statusData.map((row, index) => (
+                    <div
+                      key={row.name}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{
+                            backgroundColor: statusColors[index % statusColors.length],
+                          }}
+                        />
+                        <span className="font-bold">{row.name}</span>
+                      </div>
+                      <span className="text-[#725f4d] dark:text-gray-400">
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </ChartCard>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+          <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <h2 className="text-2xl font-black">Recent Guided Orders</h2>
+            <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
+              Purchases attributed to your referral code.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              {referredOrders.length === 0 ? (
+                <EmptyState text="No guided orders yet. Share your referral code while assisting customers." />
+              ) : (
+                referredOrders.slice(0, 10).map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex flex-col justify-between gap-3 rounded-3xl border border-[#ded0bf] bg-[#f8efe4] p-4 dark:border-white/10 dark:bg-white/[0.05] sm:flex-row sm:items-center"
+                  >
+                    <div>
+                      <p className="font-black">
+                        #{order.id.slice(0, 8).toUpperCase()}
+                      </p>
+                      <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
+                        {order.full_name || "Customer"} · {titleCase(order.status || "pending")} ·{" "}
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <p className="font-black">{formatUSD(order.total_amount)}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="h-fit rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <h2 className="text-2xl font-black">Agent Guidelines</h2>
+            <div className="mt-5 space-y-4 text-sm text-[#725f4d] dark:text-gray-400">
+              <Guideline text="Give your referral code to customers you personally guide." />
+              <Guideline text="Customers must complete purchases using their own accounts." />
+              <Guideline text="You cannot receive referral credit from your personal purchases." />
+              <Guideline text="Describe products as novelty collectibles only, not investments or redeemable cryptocurrency." />
+            </div>
+            <p className="mt-6 rounded-2xl bg-[#f8efe4] p-4 text-xs text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+              Delivered Rate measures delivered referred orders divided by all
+              referred orders. It is not a call conversion rate because calls and
+              unsuccessful leads are not yet recorded.
+            </p>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
+
+  const canEditApplication = !agentProfile || agentProfile.status === "pending";
+
+  return (
+    <AppShell title="Agent Application" toasts={toasts}>
+      <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          Agent Program
+        </p>
+        <h1 className="mt-3 text-4xl font-black md:text-6xl">
+          Apply as an Agent
+        </h1>
+        <p className="mt-3 max-w-2xl text-[#725f4d] dark:text-gray-400">
+          Approved agents receive a referral code to track purchases they help
+          customers complete. Your customer shopping access remains active.
+        </p>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <StatCard label="Applicants" value={summary.totalAgents.toString()} />
-        <StatCard label="Approved" value={summary.approvedAgents.toString()} />
-        <StatCard label="Pending Review" value={summary.pendingApplications.toString()} />
-        <StatCard label="Delivered Orders" value={summary.deliveredOrders.toString()} />
-        <StatCard label="Delivered Revenue" value={formatUSD(summary.deliveredRevenue)} highlight />
-        <StatCard label="Delivered Rate" value={`${summary.deliveredRate.toFixed(0)}%`} />
-      </section>
-
-      <section className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <h2 className="text-2xl font-black">Top Agents by Delivered Revenue</h2>
+      <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+        <form
+          onSubmit={submitApplication}
+          className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+        >
+          <h2 className="text-2xl font-black">
+            {agentProfile ? "Application Details" : "Submit Application"}
+          </h2>
           <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
-            Only delivered referred purchases are counted as completed sales.
+            Admin approval is required before referral tracking becomes active.
           </p>
 
-          {chartData.length === 0 ? (
-            <EmptyState text="No delivered agent-attributed sales yet." />
-          ) : (
-            <div className="mt-5">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData} layout="vertical" margin={{ right: 16 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e7ded2" />
-                  <XAxis type="number" tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
-                  <YAxis dataKey="name" type="category" width={115} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value) => formatUSD(Number(value))} />
-                  <Bar dataKey="revenue" name="Delivered Revenue" fill="#7c3aed" radius={[0, 10, 10, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+          <div className="mt-6 space-y-4">
+            <FormField
+              label="Display Name"
+              value={agentForm.display_name}
+              onChange={(value) =>
+                setAgentForm((prev) => ({ ...prev, display_name: value }))
+              }
+              disabled={!canEditApplication}
+              maxLength={100}
+              placeholder="Name visible to customers/admin"
+            />
+
+            <FormField
+              label="Phone"
+              value={agentForm.phone}
+              onChange={(value) =>
+                setAgentForm((prev) => ({ ...prev, phone: value }))
+              }
+              disabled={!canEditApplication}
+              maxLength={30}
+              placeholder="Optional contact number"
+            />
+
+            <div>
+              <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
+                Notes
+              </label>
+              <textarea
+                value={agentForm.notes}
+                onChange={(event) =>
+                  setAgentForm((prev) => ({ ...prev, notes: event.target.value }))
+                }
+                disabled={!canEditApplication}
+                maxLength={1000}
+                rows={5}
+                placeholder="Optional experience or availability"
+                className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+              />
             </div>
+
+            {canEditApplication && (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black"
+              >
+                {submitting ? "Submitting..." : agentProfile ? "Update Application" : "Submit Application"}
+              </button>
+            )}
+          </div>
+        </form>
+
+        <aside className="h-fit rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <h2 className="text-2xl font-black">Application Status</h2>
+          <div className="mt-5 rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d] dark:text-gray-400">
+              Current Status
+            </p>
+            <p className="mt-2 text-3xl font-black capitalize">
+              {agentProfile?.status || "Not Applied"}
+            </p>
+            <p className="mt-2 text-sm text-[#725f4d] dark:text-gray-400">
+              {userEmail}
+            </p>
+          </div>
+
+          {agentProfile?.status === "pending" && (
+            <p className="mt-5 text-sm text-[#725f4d] dark:text-gray-400">
+              Your application is awaiting admin review. You can edit the details
+              while it remains pending.
+            </p>
           )}
-        </div>
 
-        <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <h2 className="text-2xl font-black">Metric Definition</h2>
-          <div className="mt-5 space-y-4 text-sm">
-            <MetricDefinition
-              title="Delivered Revenue"
-              text="Value of referral-attributed orders marked delivered."
-            />
-            <MetricDefinition
-              title="Pipeline Value"
-              text="Value of pending, confirmed, packed, or shipped attributed orders."
-            />
-            <MetricDefinition
-              title="Delivered Rate"
-              text="Delivered referred orders divided by all referred orders."
-            />
-          </div>
-
-          <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
-            <p className="font-black">Not call conversion yet</p>
-            <p className="mt-1">
-              True conversion rate requires recording attempted calls or leads,
-              including customers who did not purchase.
+          {agentProfile?.status === "rejected" && (
+            <p className="mt-5 text-sm text-[#725f4d] dark:text-gray-400">
+              This application was not approved. Contact an administrator if a
+              review is needed.
             </p>
-          </div>
-        </div>
-      </section>
+          )}
 
-      <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <h2 className="text-2xl font-black">Agent Rankings and Applications</h2>
-            <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
-              Review access status and verified referral performance.
+          {agentProfile?.status === "suspended" && (
+            <p className="mt-5 text-sm text-[#725f4d] dark:text-gray-400">
+              Agent access is currently suspended. Your customer shopping access
+              remains available.
             </p>
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as StatusFilter)
-            }
-            className="rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm font-bold outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
-          >
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="suspended">Suspended</option>
-          </select>
-        </div>
-
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[1160px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#ded0bf] text-xs uppercase tracking-[0.18em] text-[#725f4d] dark:border-white/10 dark:text-gray-400">
-                <th className="py-4">Rank / Agent</th>
-                <th className="py-4">Code</th>
-                <th className="py-4">Status</th>
-                <th className="py-4">Guided</th>
-                <th className="py-4">Delivered</th>
-                <th className="py-4">Delivered Revenue</th>
-                <th className="py-4">Pipeline</th>
-                <th className="py-4">Delivered Rate</th>
-                <th className="py-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAgents.map((agent) => {
-                const rank =
-                  rankedAgents.findIndex((row) => row.user_id === agent.user_id) + 1;
-
-                return (
-                  <tr
-                    key={agent.id}
-                    className="border-b border-[#eadfd1] dark:border-white/5"
-                  >
-                    <td className="py-4">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1e6d9] text-xs font-black dark:bg-white/[0.08]">
-                          {rank}
-                        </span>
-                        <div>
-                          <p className="font-black">
-                            {agent.display_name || "Unnamed Agent"}
-                          </p>
-                          <p className="text-xs text-[#725f4d] dark:text-gray-400">
-                            {agent.phone || "No phone"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      {agent.referral_code ? (
-                        <button
-                          type="button"
-                          onClick={() => copyReferralCode(agent.referral_code)}
-                          className="rounded-full bg-violet-50 px-3 py-2 font-mono text-xs font-black text-violet-700 transition hover:bg-violet-100 dark:bg-violet-400/10 dark:text-violet-200"
-                        >
-                          {agent.referral_code}
-                        </button>
-                      ) : (
-                        <span className="text-zinc-400">Not issued</span>
-                      )}
-                    </td>
-                    <td className="py-4">
-                      <StatusBadge status={agent.status} />
-                    </td>
-                    <td className="py-4 font-bold">{agent.allOrders}</td>
-                    <td className="py-4 font-bold">{agent.deliveredOrders}</td>
-                    <td className="py-4 font-black">
-                      {formatUSD(agent.deliveredRevenue)}
-                    </td>
-                    <td className="py-4 font-bold">
-                      {formatUSD(agent.pipelineValue)}
-                    </td>
-                    <td className="py-4 font-black">
-                      {agent.deliveredRate.toFixed(0)}%
-                    </td>
-                    <td className="py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedAgent(agent)}
-                          className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10"
-                        >
-                          Details
-                        </button>
-
-                        {agent.status === "pending" && (
-                          <>
-                            <ActionButton
-                              label="Approve"
-                              disabled={savingAgentId === agent.id}
-                              onClick={() => approveAgent(agent.id)}
-                              style="approve"
-                            />
-                            <ActionButton
-                              label="Reject"
-                              disabled={savingAgentId === agent.id}
-                              onClick={() => rejectAgent(agent.id)}
-                              style="danger"
-                            />
-                          </>
-                        )}
-
-                        {agent.status === "approved" && (
-                          <ActionButton
-                            label="Suspend"
-                            disabled={savingAgentId === agent.id}
-                            onClick={() => suspendAgent(agent.id)}
-                            style="danger"
-                          />
-                        )}
-
-                        {agent.status === "suspended" && (
-                          <ActionButton
-                            label="Reactivate"
-                            disabled={savingAgentId === agent.id}
-                            onClick={() => reactivateAgent(agent.id)}
-                            style="approve"
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredAgents.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="py-10 text-center text-[#725f4d] dark:text-gray-400"
-                  >
-                    No agents found for the selected filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          )}
+        </aside>
       </section>
-
-      {selectedAgent && (
-        <AgentDetailModal
-          agent={selectedAgent}
-          orders={orders.filter((order) => order.agent_id === selectedAgent.user_id)}
-          formatUSD={formatUSD}
-          onClose={() => setSelectedAgent(null)}
-        />
-      )}
     </AppShell>
+  );
+}
+
+function titleCase(value: string) {
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function LoadingCard() {
+  return (
+    <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+    </div>
   );
 }
 
@@ -654,7 +763,7 @@ function StatCard({
           : "border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"
       }`}
     >
-      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#725f4d] dark:text-gray-400">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#725f4d] dark:text-gray-400">
         {label}
       </p>
       <p className="mt-3 text-2xl font-black">{value}</p>
@@ -662,200 +771,71 @@ function StatCard({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const style =
-    status === "approved"
-      ? "bg-green-600"
-      : status === "pending"
-        ? "bg-amber-500 text-black"
-        : status === "suspended"
-          ? "bg-red-600"
-          : "bg-zinc-500";
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${style}`}>
-      {status}
-    </span>
-  );
-}
-
-function ActionButton({
-  label,
-  onClick,
-  disabled,
-  style,
+function ChartCard({
+  title,
+  subtitle,
+  children,
 }: {
-  label: string;
-  onClick: () => void;
-  disabled: boolean;
-  style: "approve" | "danger";
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`rounded-full px-4 py-2 text-xs font-bold text-white transition disabled:opacity-50 ${
-        style === "approve"
-          ? "bg-green-600 hover:bg-green-700"
-          : "bg-red-600 hover:bg-red-700"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function MetricDefinition({ title, text }: { title: string; text: string }) {
-  return (
-    <div>
-      <p className="font-black">{title}</p>
-      <p className="mt-1 text-[#725f4d] dark:text-gray-400">{text}</p>
+    <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <h2 className="text-2xl font-black">{title}</h2>
+      <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">{subtitle}</p>
+      <div className="mt-5">{children}</div>
     </div>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <p className="mt-5 rounded-3xl bg-[#f8efe4] p-6 text-center text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+    <div className="flex min-h-[130px] items-center justify-center rounded-3xl bg-[#f8efe4] p-5 text-center text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
       {text}
-    </p>
-  );
-}
-
-function AccessCard({
-  title,
-  body,
-  href,
-  button,
-  danger = false,
-}: {
-  title: string;
-  body: string;
-  href: string;
-  button: string;
-  danger?: boolean;
-}) {
-  return (
-    <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-violet-600"}`}>
-        {danger ? "Access Denied" : "Login Required"}
-      </p>
-      <h1 className="mt-4 text-4xl font-black">{title}</h1>
-      <p className="mt-4 text-[#725f4d] dark:text-gray-400">{body}</p>
-      <Link
-        href={href}
-        className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
-      >
-        {button}
-      </Link>
-    </section>
-  );
-}
-
-function AgentDetailModal({
-  agent,
-  orders,
-  onClose,
-  formatUSD,
-}: {
-  agent: AgentRow;
-  orders: AgentOrder[];
-  onClose: () => void;
-  formatUSD: (value: number | null | undefined) => string;
-}) {
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-zinc-950 md:p-8">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-black text-white dark:bg-white dark:text-black"
-        >
-          ✕
-        </button>
-
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
-          Agent Details
-        </p>
-        <h2 className="mt-3 text-3xl font-black">
-          {agent.display_name || "Unnamed Agent"}
-        </h2>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <StatCard label="Guided Orders" value={agent.allOrders.toString()} />
-          <StatCard label="Delivered Sales" value={formatUSD(agent.deliveredRevenue)} highlight />
-          <StatCard label="Pipeline" value={formatUSD(agent.pipelineValue)} />
-          <StatCard label="Delivered Rate" value={`${agent.deliveredRate.toFixed(0)}%`} />
-        </div>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-            <h3 className="text-xl font-black">Profile</h3>
-            <div className="mt-4 space-y-3 text-sm">
-              <DetailRow label="Status" value={agent.status} />
-              <DetailRow label="Phone" value={agent.phone || "N/A"} />
-              <DetailRow label="Referral Code" value={agent.referral_code || "Not issued"} />
-              <DetailRow
-                label="Approved At"
-                value={
-                  agent.approved_at
-                    ? new Date(agent.approved_at).toLocaleString()
-                    : "N/A"
-                }
-              />
-              <DetailRow label="Notes" value={agent.notes || "No notes"} />
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-            <h3 className="text-xl font-black">Recent Attributed Orders</h3>
-            <div className="mt-4 space-y-3">
-              {orders.length === 0 ? (
-                <p className="rounded-2xl bg-white p-4 text-sm text-[#725f4d] dark:bg-white/[0.03] dark:text-gray-400">
-                  No attributed orders yet.
-                </p>
-              ) : (
-                orders.slice(0, 8).map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex justify-between gap-4 rounded-2xl bg-white p-4 dark:bg-white/[0.04]"
-                  >
-                    <div>
-                      <p className="font-black">
-                        #{order.id.slice(0, 8).toUpperCase()}
-                      </p>
-                      <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
-                        {order.full_name || "Customer"} · {order.status || "pending"}
-                      </p>
-                    </div>
-                    <p className="font-black">{formatUSD(order.total_amount)}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-6 w-full rounded-2xl border border-[#cdbba7] py-4 text-sm font-black uppercase tracking-[0.18em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
-        >
-          Close
-        </button>
-      </div>
     </div>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function Guideline({ text }: { text: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-[10px] font-black text-white">
+        ✓
+      </span>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  value,
+  onChange,
+  disabled,
+  maxLength,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  maxLength: number;
+  placeholder: string;
+}) {
   return (
     <div>
-      <p className="text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
+      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
         {label}
-      </p>
-      <p className="mt-1 font-bold">{value}</p>
+      </label>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+      />
     </div>
   );
 }

@@ -66,7 +66,7 @@ function LoginContent() {
   const mutedText = isDark ? "text-gray-400" : "text-[#725f4d]";
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 

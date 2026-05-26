@@ -120,7 +120,7 @@ export type Order = {
 
 
 export type ToastItem = {
-  id: number;
+  id: string;
   message: string;
   type: "success" | "error" | "info";
 };

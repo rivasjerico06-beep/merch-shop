@@ -1,10 +1,6 @@
 "use client";
 
-export type ToastItem = {
-  id: number;
-  message: string;
-  type: "success" | "error" | "info";
-};
+import type { ToastItem } from "@/lib/types";
 
 type ToastContainerProps = {
   toasts: ToastItem[];
@@ -24,10 +20,10 @@ export default function ToastContainer({
             toast.type === "success"
               ? "bg-green-600 text-white"
               : toast.type === "error"
-              ? "bg-red-600 text-white"
-              : isDark
-              ? "bg-white text-black"
-              : "bg-zinc-950 text-white"
+                ? "bg-red-600 text-white"
+                : isDark
+                  ? "bg-white text-black"
+                  : "bg-zinc-950 text-white"
           }`}
         >
           {toast.message}

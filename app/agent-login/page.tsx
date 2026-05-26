@@ -37,7 +37,7 @@ function AgentLoginContent() {
     : "border-[#cdbba7] bg-white text-zinc-950 placeholder:text-[#8c7a67] focus:border-violet-600 focus:ring-4 focus:ring-violet-200/70";
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => setToasts((prev) => prev.filter((toast) => toast.id !== id)), 3000);
   };

@@ -116,11 +116,24 @@ export const profileSchema = z
 
 export const checkoutSchema = profileSchema
   .extend({
+    postal_code: z
+      .string()
+      .transform(sanitizeText)
+      .refine(
+        (value) => value.length >= 3 && value.length <= 20,
+        "Enter a valid postal code."
+      )
+      .refine(
+        (value) => /^[0-9A-Za-z -]+$/.test(value),
+        "Postal code contains invalid characters."
+      ),
+
     payment_method: z.enum(["COD", "GCash", "Bank Transfer"], {
       error: "Invalid payment method.",
     }),
   })
   .strict();
+
 
 export const newsletterSchema = z.object({ email: emailSchema }).strict();
 

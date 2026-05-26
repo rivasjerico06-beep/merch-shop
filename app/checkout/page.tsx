@@ -79,7 +79,7 @@ export default function CheckoutPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -372,6 +372,18 @@ export default function CheckoutPage() {
 
     if (!checkoutForm.city.trim()) return "City or municipality is required.";
     if (!checkoutForm.province.trim()) return "Province is required.";
+
+    if (!checkoutForm.postal_code.trim()) {
+      return "Postal code is required.";
+    }
+
+    if (
+      checkoutForm.postal_code.trim().length < 3 ||
+      checkoutForm.postal_code.trim().length > 20
+    ) {
+      return "Enter a valid postal code.";
+    }
+
     if (!checkoutForm.payment_method) return "Payment method is required.";
 
     const stockError = validateStock();
@@ -466,7 +478,10 @@ export default function CheckoutPage() {
       const message = error?.message || "";
 
       if (message.includes("own referral code")) {
-        addToast("You cannot apply your own referral code to your personal order.", "error");
+        addToast(
+          "You cannot apply your own referral code to your personal order.",
+          "error"
+        );
       } else if (message.includes("Invalid or inactive agent referral code")) {
         addToast("The agent referral code is invalid or inactive.", "error");
       } else if (message.includes("coupon has expired")) {
@@ -474,14 +489,32 @@ export default function CheckoutPage() {
       } else if (message.includes("coupon is no longer available")) {
         addToast("This coupon has already been used or is unavailable.", "error");
       } else if (message.includes("minimum amount required")) {
-        addToast("Your order does not meet the minimum amount for this coupon.", "error");
-      } else if (message.includes("out of stock") || message.includes("unavailable")) {
+        addToast(
+          "Your order does not meet the minimum amount for this coupon.",
+          "error"
+        );
+      } else if (
+        message.includes("out of stock") ||
+        message.includes("unavailable")
+      ) {
         addToast("One or more products are unavailable or out of stock.", "error");
       } else {
-        addToast("Failed to place order. Please review your details and try again.", "error");
+        addToast(
+          error?.message
+            ? `Checkout failed: ${error.message}`
+            : "Checkout failed: no order result was returned.",
+          "error"
+        );
       }
 
-      console.error("Secure checkout error:", error);
+      console.warn("Secure checkout failed:", {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        data,
+      });
+
       setPlacingOrder(false);
       return;
     }

@@ -41,12 +41,15 @@ export default function AdminAgentsPage() {
   const [savingAgentId, setSavingAgentId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((toast) => toast.id !== id)), 3000);
-  };
+const addToast = (message: string, type: ToastItem["type"] = "info") => {
+  const id = crypto.randomUUID();
 
+  setToasts((prev) => [...prev, { id, message, type }]);
+
+  setTimeout(() => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, 3000);
+};
   const formatUSD = (value: number) => {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value || 0));
   };
