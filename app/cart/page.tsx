@@ -12,6 +12,8 @@ import {
   getCartProduct,
   hasValidImageUrl,
 } from "@/lib/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCartShopping, faBagShopping } from "@fortawesome/free-solid-svg-icons";
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -21,14 +23,14 @@ export default function CartPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-  const id = crypto.randomUUID();
+    const id = crypto.randomUUID();
 
-  setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type }]);
 
-  setTimeout(() => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, 3000);
-};
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 3000);
+  };
 
   const formatCartPrice = (item: CartItem, value: number) => {
     const product = getCartProduct(item);
@@ -128,58 +130,57 @@ export default function CartPage() {
     return () => subscription.unsubscribe();
   }, []);
 
- const updateCartQuantity = async (itemId: string, newQuantity: number) => {
-  if (!userId) {
-    addToast("Please login first", "error");
-    return;
-  }
+  const updateCartQuantity = async (itemId: string, newQuantity: number) => {
+    if (!userId) {
+      addToast("Please login first", "error");
+      return;
+    }
 
-  let parsed;
+    let parsed;
 
-  try {
-    parsed = cartQuantitySchema.parse({
-      quantity: newQuantity,
-    });
-  } catch (error) {
-    addToast(getValidationMessage(error), "error");
-    return;
-  }
+    try {
+      parsed = cartQuantitySchema.parse({
+        quantity: newQuantity,
+      });
+    } catch (error) {
+      addToast(getValidationMessage(error), "error");
+      return;
+    }
 
-  const item = cartItems.find((cartItem) => cartItem.id === itemId);
-  const product = item ? getCartProduct(item) : null;
+    const item = cartItems.find((cartItem) => cartItem.id === itemId);
+    const product = item ? getCartProduct(item) : null;
 
-  const bundleUnits = Number(item?.option_quantity || 1);
-  const totalUnitsNeeded = parsed.quantity * bundleUnits;
+    const bundleUnits = Number(item?.option_quantity || 1);
+    const totalUnitsNeeded = parsed.quantity * bundleUnits;
 
-  if (product && totalUnitsNeeded > Number(product.stock || 0)) {
-    addToast(
-      `Only ${product.stock} unit(s) available. This bundle needs ${bundleUnits} unit(s) each.`,
-      "error"
+    if (product && totalUnitsNeeded > Number(product.stock || 0)) {
+      addToast(
+        `Only ${product.stock} unit(s) available. This bundle needs ${bundleUnits} unit(s) each.`,
+        "error"
+      );
+      return;
+    }
+
+    const { error } = await supabase
+      .from("cart_items")
+      .update({ quantity: parsed.quantity })
+      .eq("id", itemId)
+      .eq("user_id", userId);
+
+    if (error) {
+      addToast("Failed to update quantity", "error");
+      console.error(error);
+      return;
+    }
+
+    setCartItems((prev) =>
+      prev.map((cartItem) =>
+        cartItem.id === itemId
+          ? { ...cartItem, quantity: parsed.quantity }
+          : cartItem
+      )
     );
-    return;
-  }
-
-  const { error } = await supabase
-    .from("cart_items")
-    .update({ quantity: parsed.quantity })
-    .eq("id", itemId)
-    .eq("user_id", userId);
-
-  if (error) {
-    addToast("Failed to update quantity", "error");
-    console.error(error);
-    return;
-  }
-
-  setCartItems((prev) =>
-    prev.map((cartItem) =>
-      cartItem.id === itemId
-        ? { ...cartItem, quantity: parsed.quantity }
-        : cartItem
-    )
-  );
-};
-
+  };
 
   const removeCartItem = async (itemId: string) => {
     if (!userId) {
@@ -264,7 +265,7 @@ export default function CartPage() {
 
       {checkingSession ? (
         <section className="mt-6 flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </section>
       ) : !userId ? (
         <section className="mx-auto mt-8 max-w-2xl rounded-[2.5rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
@@ -279,7 +280,7 @@ export default function CartPage() {
 
           <Link
             href="/login?redirect=/cart"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+            className="mt-6 inline-block rounded-full bg-[#093459] px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
           >
             Go to Login
           </Link>
@@ -289,12 +290,15 @@ export default function CartPage() {
           <div className="space-y-4">
             {loading ? (
               <div className="flex h-64 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
               </div>
             ) : cartItems.length === 0 ? (
               <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-10 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gray-200 dark:bg-zinc-700 text-3xl text-gray-500 dark:text-gray-400">
-                  🛒
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gray-200 dark:bg-zinc-700">
+                  <FontAwesomeIcon
+                    icon={faCartShopping}
+                    className="text-3xl text-gray-500 dark:text-gray-400"
+                  />
                 </div>
                 <h2 className="text-2xl font-black">Your cart is empty</h2>
                 <p className="mt-2 text-[#725f4d] dark:text-gray-400">
@@ -302,7 +306,7 @@ export default function CartPage() {
                 </p>
                 <Link
                   href="/products"
-                  className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                  className="mt-6 inline-block rounded-full bg-[#093459] px-6 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
                 >
                   Browse Products
                 </Link>
@@ -326,8 +330,11 @@ export default function CartPage() {
                           className="h-28 w-28 rounded-3xl object-cover"
                         />
                       ) : (
-                        <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-violet-600 text-3xl text-white">
-                          🛍️
+                        <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-[#58948f]">
+                          <FontAwesomeIcon
+                            icon={faBagShopping}
+                            className="text-3xl text-white"
+                          />
                         </div>
                       )}
 
@@ -340,7 +347,7 @@ export default function CartPage() {
                         </p>
 
                         {item.option_label && (
-                          <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-200">
+                          <div className="mt-3 rounded-2xl border border-[#58948f]/30 bg-[#58948f]/10 p-3 text-sm text-[#093459] dark:border-[#58948f]/20 dark:bg-[#58948f]/10 dark:text-[#58948f]">
                             <p className="font-black">Selected Bundle</p>
                             <p className="mt-1">{item.option_label}</p>
                             <p className="mt-1 text-xs">
@@ -438,7 +445,7 @@ export default function CartPage() {
               className={`mt-6 block w-full rounded-2xl py-4 text-center text-sm font-black uppercase tracking-[0.2em] transition ${
                 cartItems.length === 0
                   ? "pointer-events-none bg-zinc-400 text-white opacity-60"
-                  : "bg-zinc-950 text-white hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                  : "bg-[#093459] text-white hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
               }`}
             >
               Proceed to Checkout

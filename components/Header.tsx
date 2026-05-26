@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 
 type HeaderProps = {
   title?: string;
@@ -75,9 +77,18 @@ export default function Header({
         )}
 
         <div className="flex shrink-0 items-center gap-2">
-          <button onClick={onToggleTheme} className={`rounded-full border px-4 py-2 text-xs font-bold transition ${outlineButton}`}>
-            {isDark ? "☀ Light" : "☾ Dark"}
-          </button>
+      <button
+          onClick={onToggleTheme}
+          className={`rounded-full border p-2 transition ${outlineButton}`}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+>
+          <FontAwesomeIcon
+          icon={isDark ? faSun : faMoon}
+          className={isDark ? "text-yellow-300" : "text-indigo-500"}
+          size="sm"
+           />
+       </button>
+
 
           <Link href="/cart" className={`relative rounded-full border px-4 py-2 text-xs font-bold transition ${outlineButton}`}>
             Cart

@@ -14,6 +14,8 @@ import {
   normalizePhone,
 } from "@/lib/utils";
 import { checkoutSchema, getValidationMessage } from "@/lib/validation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBagShopping } from "@fortawesome/free-solid-svg-icons";
 
 type CheckoutForm = {
   full_name: string;
@@ -355,7 +357,6 @@ export default function CheckoutPage() {
     } catch {
       localStorage.removeItem(REFERRAL_STORAGE_KEY);
     }
-    // Restore a referral once after the signed-in customer is identified.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -717,7 +718,7 @@ export default function CheckoutPage() {
       <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Checkout
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -835,7 +836,7 @@ export default function CheckoutPage() {
                     payment_method: e.target.value,
                   }))
                 }
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
               >
                 <option className="bg-white text-zinc-950 dark:bg-zinc-900 dark:text-white" value="COD">
                   Cash on Delivery
@@ -850,8 +851,8 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-3xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-400/20 dark:bg-violet-400/10">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">
+          <div className="mt-6 rounded-3xl border border-[#58948f]/30 bg-[#58948f]/10 p-5 dark:border-[#58948f]/20 dark:bg-[#58948f]/10">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f] dark:text-[#58948f]">
               Assisted by an Agent?
             </p>
             <p className="mt-2 text-sm text-zinc-600 dark:text-gray-300">
@@ -871,14 +872,14 @@ export default function CheckoutPage() {
                 }}
                 maxLength={24}
                 placeholder="Example: AGT-A83F29BC"
-                className="min-w-0 flex-1 rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm font-bold uppercase tracking-[0.08em] text-zinc-950 outline-none focus:border-violet-600 dark:border-violet-400/20 dark:bg-zinc-900 dark:text-white"
+                className="min-w-0 flex-1 rounded-2xl border border-[#58948f]/30 bg-white px-4 py-3 text-sm font-bold uppercase tracking-[0.08em] text-zinc-950 outline-none focus:border-[#58948f] dark:border-[#58948f]/20 dark:bg-zinc-900 dark:text-white"
               />
 
               <button
                 type="button"
                 disabled={checkingReferral || !referralCode.trim() || !userId}
                 onClick={() => validateReferralCode()}
-                className="rounded-2xl bg-violet-600 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60"
+                className="rounded-2xl bg-[#58948f] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] disabled:opacity-60"
               >
                 {checkingReferral ? "Checking..." : "Apply Code"}
               </button>
@@ -965,7 +966,7 @@ export default function CheckoutPage() {
 
           <button
             disabled={placingOrder || loading || checkingReferral || checkingCoupon || cartItems.length === 0 || !userId}
-            className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+            className="mt-6 w-full rounded-2xl bg-[#093459] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] disabled:opacity-60 dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
           >
             {placingOrder ? "Placing Order..." : "Place Order"}
           </button>
@@ -976,7 +977,7 @@ export default function CheckoutPage() {
 
           {loading ? (
             <div className="mt-6 flex h-40 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
             </div>
           ) : cartItems.length === 0 ? (
             <div className="mt-6 rounded-3xl bg-black/[0.03] p-6 text-center dark:bg-white/[0.05]">
@@ -1010,8 +1011,11 @@ export default function CheckoutPage() {
                             className="h-16 w-16 rounded-2xl object-cover"
                           />
                         ) : (
-                          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600 text-xl text-white">
-                            🛍️
+                          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#58948f]">
+                            <FontAwesomeIcon
+                              icon={faBagShopping}
+                              className="text-xl text-white"
+                            />
                           </div>
                         )}
 
@@ -1139,7 +1143,7 @@ export default function CheckoutPage() {
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <button
                 onClick={copyReceiptSummary}
-                className="rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                className="rounded-2xl bg-[#093459] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
               >
                 Copy Receipt
               </button>
@@ -1178,7 +1182,7 @@ function FormInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
+        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
       />
     </div>
   );

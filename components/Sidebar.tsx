@@ -39,6 +39,7 @@ type NavLink = {
 const customerLinks: NavLink[] = [
   { href: "/", label: "Home", icon: faHouse },
   { href: "/products", label: "Products", icon: faBagShopping },
+  { href: "/assistance", label: "Request Help", icon: faHeadset },
   { href: "/cart", label: "Cart", icon: faCartShopping },
   { href: "/checkout", label: "Checkout", icon: faCreditCard },
   { href: "/account", label: "Account", icon: faUser },
@@ -89,16 +90,15 @@ export default function Sidebar({
   const pathname = usePathname();
 
   const sidebarBase = isDark
-    ? "border-white/10 bg-zinc-950 text-white"
-    : "border-[#ded0bf] bg-[#fffaf4] text-[#18120d] shadow-[1px_0_0_rgba(77,55,36,0.08)]";
+    ? "border-[#58948f]/20 bg-black text-white"
+    : "border-[#093459]/15 bg-[#f0f7f6] text-[#093459] shadow-[1px_0_0_rgba(9,52,89,0.08)]";
 
-  const mutedText = isDark ? "text-gray-400" : "text-[#725f4d]";
+  const mutedText = isDark ? "text-[#58948f]" : "text-[#093459]/50";
 
   const getPathOnly = (href: string) => href.split("?")[0];
 
   const getIsActive = (href: string) => {
     const linkPath = getPathOnly(href);
-
     return linkPath === "/"
       ? pathname === "/"
       : pathname === linkPath || pathname.startsWith(`${linkPath}/`);
@@ -111,12 +111,12 @@ export default function Sidebar({
       "relative flex h-12 items-center rounded-2xl text-sm font-bold transition-all duration-300 lg:justify-center lg:px-0 lg:group-hover/sidebar:justify-start lg:group-hover/sidebar:px-4";
 
     if (isActive) {
-      return `${base} bg-violet-600 text-white shadow-sm`;
+      return `${base} bg-[#58948f] text-white shadow-sm`;
     }
 
     return isDark
-      ? `${base} text-gray-300 hover:bg-white/10 hover:text-white`
-      : `${base} text-[#3b2f25] hover:bg-[#f1e6d9] hover:text-[#18120d]`;
+      ? `${base} text-white/70 hover:bg-[#58948f]/15 hover:text-white`
+      : `${base} text-[#093459]/70 hover:bg-[#093459]/08 hover:text-[#093459]`;
   };
 
   const renderLink = (link: NavLink) => {
@@ -166,24 +166,25 @@ export default function Sidebar({
           isOpen ? "translate-x-0" : "-translate-x-full"
         } ${sidebarBase}`}
       >
+        {/* Logo */}
         <div className="flex h-12 items-center justify-between gap-3 overflow-hidden">
           <Link
             href={isAgentMode ? "/agent" : "/"}
             onClick={onClose}
             className="flex min-w-0 items-center gap-3 overflow-hidden"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-base font-black text-white">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#58948f] text-base font-black text-white">
               {isAgentMode ? "A" : "M"}
             </span>
 
             <span className="hidden whitespace-nowrap text-2xl font-black tracking-tight opacity-0 transition-opacity duration-200 lg:group-hover/sidebar:inline lg:group-hover/sidebar:opacity-100">
               {isAgentMode ? (
                 <>
-                  AGENT<span className="text-violet-600">PORTAL</span>
+                  AGENT<span className="text-[#58948f]">PORTAL</span>
                 </>
               ) : (
                 <>
-                  MERCH<span className="text-violet-600">SHOP</span>
+                  KR<span className="text-[#58948f]">SELLIFY</span>
                 </>
               )}
             </span>
@@ -197,6 +198,7 @@ export default function Sidebar({
           </button>
         </div>
 
+        {/* Nav */}
         <div className="mt-8 min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0">
           {isAgentMode ? (
             <>
@@ -230,7 +232,7 @@ export default function Sidebar({
               <Link
                 href="/agent-login"
                 onClick={onClose}
-                className="block rounded-2xl border border-violet-200 bg-violet-50 p-3 text-center text-xs font-black uppercase tracking-[0.15em] text-violet-700 transition hover:bg-violet-100 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-200 dark:hover:bg-violet-400/15"
+                className="block rounded-2xl border border-[#58948f]/30 bg-[#58948f]/10 p-3 text-center text-xs font-black uppercase tracking-[0.15em] text-[#58948f] transition hover:bg-[#58948f]/20 dark:border-[#58948f]/20 dark:bg-[#58948f]/10 dark:text-[#6fb0aa] dark:hover:bg-[#58948f]/20"
               >
                 Open Agent Portal
               </Link>
@@ -249,14 +251,15 @@ export default function Sidebar({
           )}
         </div>
 
+        {/* Status footer */}
         <div
           className={`mt-4 hidden overflow-hidden rounded-3xl border p-4 text-xs opacity-0 transition-opacity duration-200 lg:group-hover/sidebar:block lg:group-hover/sidebar:opacity-100 ${
             isDark
-              ? "border-white/10 bg-white/[0.04]"
-              : "border-[#ded0bf] bg-[#f7ecdf]"
+              ? "border-[#58948f]/20 bg-[#58948f]/05"
+              : "border-[#093459]/12 bg-[#093459]/05"
           }`}
         >
-          <p className="whitespace-nowrap font-black uppercase tracking-[0.2em] text-violet-600">
+          <p className="whitespace-nowrap font-black uppercase tracking-[0.2em] text-[#58948f]">
             Status
           </p>
           <p className={`mt-2 whitespace-nowrap ${mutedText}`}>

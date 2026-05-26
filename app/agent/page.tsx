@@ -30,6 +30,10 @@ type AgentProfile = {
   approved_at: string | null;
   created_at: string;
   updated_at: string | null;
+  accepting_inbound_leads: boolean | null;
+  inbound_assignment_enabled: boolean | null;
+  max_active_inbound_leads: number | null;
+  availability_updated_at: string | null;
 };
 
 type ReferredOrder = {
@@ -81,6 +85,7 @@ export default function AgentPage() {
   const [agentForm, setAgentForm] = useState(emptyAgentForm);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [updatingAvailability, setUpdatingAvailability] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
@@ -293,6 +298,41 @@ export default function AgentPage() {
     }
   };
 
+  const toggleInboundAvailability = async () => {
+    if (!agentProfile || agentProfile.status !== "approved") return;
+
+    const nextAvailable = !Boolean(agentProfile.accepting_inbound_leads);
+    setUpdatingAvailability(true);
+
+    const { error } = await supabase.rpc("set_my_inbound_availability", {
+      input_available: nextAvailable,
+    });
+
+    if (error) {
+      addToast(error.message || "Unable to update availability.", "error");
+      setUpdatingAvailability(false);
+      return;
+    }
+
+    setAgentProfile((previous) =>
+      previous
+        ? {
+            ...previous,
+            accepting_inbound_leads: nextAvailable,
+            availability_updated_at: new Date().toISOString(),
+          }
+        : previous
+    );
+
+    addToast(
+      nextAvailable
+        ? "You are now available for new customer callback requests."
+        : "You are unavailable for new callback assignments.",
+      "success"
+    );
+    setUpdatingAvailability(false);
+  };
+
   const metrics = useMemo(() => {
     const delivered = referredOrders.filter((order) => order.status === "delivered");
     const active = referredOrders.filter((order) =>
@@ -450,6 +490,50 @@ export default function AgentPage() {
                 Share the shopping link with customers you personally assist.
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-600">
+                Inbound Customer Requests
+              </p>
+              <h2 className="mt-2 text-2xl font-black">
+                {agentProfile.inbound_assignment_enabled === false
+                  ? "Assignment Disabled by Admin"
+                  : agentProfile.accepting_inbound_leads
+                    ? "Available for New Requests"
+                    : "Unavailable for New Requests"}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-[#725f4d] dark:text-gray-400">
+                Turn availability on only while you can accept new customer-requested
+                callback leads. Your maximum active inbound workload is{" "}
+                <span className="font-black">
+                  {agentProfile.max_active_inbound_leads ?? 15} leads
+                </span>.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleInboundAvailability}
+              disabled={
+                updatingAvailability ||
+                agentProfile.inbound_assignment_enabled === false
+              }
+              className={`rounded-full px-7 py-4 text-xs font-black uppercase tracking-[0.18em] text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                agentProfile.accepting_inbound_leads
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-green-600 hover:bg-green-700"
+              }`}
+            >
+              {updatingAvailability
+                ? "Updating..."
+                : agentProfile.accepting_inbound_leads
+                  ? "Go Unavailable"
+                  : "Go Available"}
+            </button>
           </div>
         </section>
 

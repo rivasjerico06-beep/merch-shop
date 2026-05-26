@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
+import RequestAssistanceButton from "@/components/RequestAssistanceButton";
 import { supabase } from "@/lib/supabase";
 import type {
   AvailabilityFilter,
@@ -53,7 +54,7 @@ export default function ProductsPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -411,7 +412,7 @@ export default function ProductsPage() {
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Novelty Collectibles
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -513,7 +514,7 @@ export default function ProductsPage() {
       <section className="mt-6">
         {loading ? (
           <div className="flex h-64 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-10 text-center text-[#725f4d] dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400">
@@ -555,7 +556,7 @@ export default function ProductsPage() {
                 />
               ) : (
                 <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-violet-600 text-4xl text-white">
+                  <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[#58948f] text-4xl text-white">
                     🛍️
                   </div>
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d]">
@@ -566,7 +567,7 @@ export default function ProductsPage() {
             </div>
 
             <div className="p-8 md:p-12">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
                 {selectedProduct.category}
               </p>
 
@@ -620,8 +621,8 @@ export default function ProductsPage() {
                         onClick={() => setSelectedOption(option)}
                         className={`rounded-2xl border p-4 text-left transition ${
                           isSelected
-                            ? "border-violet-600 bg-violet-600 text-white"
-                            : "border-[#ded0bf] bg-[#fffaf4] hover:border-violet-400 dark:border-white/10 dark:bg-white/[0.04]"
+                            ? "border-[#58948f] bg-[#58948f] text-white"
+                            : "border-[#ded0bf] bg-[#fffaf4] hover:border-[#58948f] dark:border-white/10 dark:bg-white/[0.04]"
                         }`}
                       >
                         <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
@@ -684,10 +685,14 @@ export default function ProductsPage() {
 
               <button
                 onClick={addToCart}
-                className="mt-8 w-full rounded-2xl bg-zinc-950 py-5 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                className="mt-8 w-full rounded-2xl bg-[#093459] py-5 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
               >
                 Add Selected Bundle to Cart
               </button>
+
+              <div className="mt-3">
+                <RequestAssistanceButton productName={selectedProduct.name} />
+              </div>
             </div>
           </div>
         </div>
@@ -725,7 +730,7 @@ function ProductCard({
           />
         ) : (
           <div className="text-center">
-            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-violet-600 text-2xl text-white">
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#58948f] text-2xl text-white">
               🛍️
             </div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d]">
@@ -753,7 +758,7 @@ function ProductCard({
       </div>
 
       <div className="p-6">
-        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-violet-600">
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[#58948f]">
           {product.category}
         </p>
 
@@ -780,9 +785,13 @@ function ProductCard({
             Stock: {product.stock ?? 0}
           </p>
 
-          <span className="rounded-full bg-violet-600 px-3 py-1 text-xs font-bold text-white">
+          <span className="rounded-full bg-[#58948f] px-3 py-1 text-xs font-bold text-white">
             View
           </span>
+        </div>
+
+        <div className="mt-4">
+          <RequestAssistanceButton productName={product.name} compact />
         </div>
       </div>
     </div>
@@ -815,7 +824,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
       >
         {options.map((option) => {
           if (typeof option === "string") {
@@ -859,7 +868,7 @@ function FilterInput({
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
         placeholder="0"
       />
     </div>

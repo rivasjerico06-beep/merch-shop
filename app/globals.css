@@ -1,11 +1,47 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Tokens ───────────────────────────────────────────── */
 :root {
-  --background: #f6f0e8;
-  --foreground: #18120d;
+  /* Light mode — white/light base, navy + teal accents */
+  --background:        #f0f7f6;          /* very light teal-tinted white */
+  --background-soft:   #e4f0ef;          /* slightly deeper tint */
+  --foreground:        #093459;          /* navy — primary text */
+  --foreground-dim:    #1a4d6e;          /* slightly lighter navy */
+  --foreground-muted:  rgba(9,52,89,.5); /* dimmed navy */
+
+  --accent:            #58948f;          /* teal */
+  --accent-light:      #6fb0aa;          /* lighter teal */
+  --accent-dim:        rgba(88,148,143,.15);
+  --accent-border:     rgba(88,148,143,.35);
+
+  --surface:           #ffffff;
+  --surface-soft:      #eef6f5;
+  --border:            rgba(9,52,89,.12);
+  --border-strong:     rgba(9,52,89,.22);
 }
 
+.dark {
+  /* Dark mode — black base, teal + navy accents */
+  --background:        #000000;
+  --background-soft:   #0a0a0a;
+  --foreground:        #ffffff;
+  --foreground-dim:    rgba(255,255,255,.75);
+  --foreground-muted:  rgba(255,255,255,.45);
+
+  --accent:            #58948f;
+  --accent-light:      #6fb0aa;
+  --accent-dim:        rgba(88,148,143,.12);
+  --accent-border:     rgba(88,148,143,.28);
+
+  --surface:           #111111;
+  --surface-soft:      #0d1a27;          /* navy-tinted dark surface */
+  --border:            rgba(255,255,255,.07);
+  --border-strong:     rgba(88,148,143,.28);
+}
+
+/* ── Base ─────────────────────────────────────────────── */
 html {
   min-height: 100%;
 }
@@ -13,9 +49,17 @@ html {
 body {
   min-height: 100%;
   background:
-    radial-gradient(circle at 10% 0%, rgba(147, 51, 234, 0.10), transparent 30rem),
-    linear-gradient(135deg, #f6f0e8 0%, #fbf7f1 45%, #efe3d4 100%);
+    radial-gradient(circle at 10% 0%, rgba(88,148,143,0.12), transparent 30rem),
+    linear-gradient(135deg, var(--background) 0%, var(--surface) 50%, var(--background-soft) 100%);
   color: var(--foreground);
+  transition: background 0.3s, color 0.3s;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(9,52,89,0.55), transparent 30rem),
+    radial-gradient(circle at 80% 80%, rgba(88,148,143,0.10), transparent 30rem),
+    linear-gradient(135deg, #000000 0%, #050d14 50%, #000000 100%);
 }
 
 * {
@@ -23,7 +67,8 @@ body {
 }
 
 ::selection {
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(88,148,143,.25);
+  color: var(--foreground);
 }
 
 button,
@@ -46,29 +91,32 @@ textarea {
   color-scheme: dark;
 }
 
+/* ── Surface helpers ──────────────────────────────────── */
 .light-surface {
-  background: #fffaf4;
-  border-color: #ded0bf;
+  background: var(--surface);
+  border-color: var(--border-strong);
 }
 
 .light-soft {
-  background: #f8efe4;
+  background: var(--surface-soft);
 }
 
+/* ── Scrollbar ────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f6f0e8;
+  background: var(--background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c7b49d;
+  background: var(--accent);
   border-radius: 999px;
+  opacity: 0.6;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9f886e;
+  background: var(--accent-light);
 }
