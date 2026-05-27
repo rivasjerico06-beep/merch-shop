@@ -701,6 +701,7 @@ export default function AgentLeadsPage() {
     await loadLeads();
     setSavingCall(false);
   };
+
   const markDoNotContact = async (lead: Lead) => {
     const reason = window.prompt(
       "Reason for Do Not Contact status:",
@@ -709,17 +710,49 @@ export default function AgentLeadsPage() {
 
     if (reason === null) return;
 
-    const { error } = await supabase.rpc("mark_sales_lead_do_not_contact", {
-      input_lead_id: lead.id,
-      input_reason: reason.trim() || "Customer requested no further calls",
-    });
+    const finalReason = reason.trim() || "Customer requested no further calls";
 
-    if (error) {
-      addToast(error.message || "Unable to mark Do Not Contact.", "error");
+    if (finalReason.length < 3 || finalReason.length > 500) {
+      addToast("Provide a Do Not Contact reason between 3 and 500 characters.", "error");
       return;
     }
 
-    addToast("Lead placed on Do Not Contact list.", "success");
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
+      return;
+    }
+
+    const response = await fetch("/api/agent/leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "mark_do_not_contact",
+        lead_id: lead.id,
+        notes: finalReason,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      if (response.status === 429 || payload.error === "RATE_LIMITED") {
+        addToast("Too many lead actions. Please try again shortly.", "error");
+      } else {
+        addToast(payload.message || "Unable to mark Do Not Contact.", "error");
+      }
+      return;
+    }
+
+    addToast(payload.message || "Lead placed on Do Not Contact list.", "success");
     setSelectedLead(null);
     await loadLeads();
   };

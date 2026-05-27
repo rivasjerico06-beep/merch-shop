@@ -522,7 +522,7 @@ export default function AssistancePage() {
           <button
             type="submit"
             disabled={submitting || Boolean(activeRequest)}
-            className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
+            className="mt-6 w-full rounded-2xl bg-[#58948f] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#58948f] dark:text-black"
           >
             {activeRequest
               ? "Active Request Already Exists"
