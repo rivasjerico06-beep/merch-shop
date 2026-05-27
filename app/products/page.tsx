@@ -409,7 +409,7 @@ export default function ProductsPage() {
       searchPlaceholder="Search products, category, SKU, or brand..."
       toasts={toasts}
     >
-      <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+      <section className="rounded-[2.5rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
@@ -418,27 +418,27 @@ export default function ProductsPage() {
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
               Shop Collectibles
             </h1>
-            <p className="mt-3 max-w-2xl text-[#725f4d] dark:text-gray-400">
+            <p className="mt-3 max-w-2xl text-[#000000] dark:text-gray-400">
               Browse display-only novelty collectibles. These items are not
               legal tender, not cryptocurrency, and not investments.
             </p>
           </div>
 
-          <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d] dark:text-gray-400">
+          <div className="rounded-3xl bg-[#58948f] p-5 dark:bg-white/[0.05]">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b5e8e4] dark:text-gray-400">
               Showing
             </p>
             <p className="mt-1 text-3xl font-black">
               {filteredProducts.length}
             </p>
-            <p className="text-sm text-[#725f4d] dark:text-gray-400">
+            <p className="text-sm text-[#b5e8e4] dark:text-gray-400">
               of {products.length} products
             </p>
           </div>
         </div>
       </section>
 
-      <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <section className="mt-6 rounded-[2rem] border border-[#58948f] bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <FilterSelect
             label="Category"
@@ -517,7 +517,7 @@ export default function ProductsPage() {
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-10 text-center text-[#725f4d] dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400">
+          <div className="rounded-[2rem] border border-[#58948f] bg-white p-10 text-center text-[#58948f] dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400">
             No products found.
           </div>
         ) : (
@@ -547,7 +547,7 @@ export default function ProductsPage() {
               ✕
             </button>
 
-            <div className="flex min-h-[420px] items-center justify-center bg-[#f8efe4] dark:bg-white/[0.05]">
+            <div className="flex min-h-[420px] items-center justify-center bg-[#58948f] dark:bg-[#58948f]">
               {hasValidImageUrl(selectedProduct.image_url) ? (
                 <img
                   src={selectedProduct.image_url || ""}
@@ -559,7 +559,7 @@ export default function ProductsPage() {
                   <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[#58948f] text-4xl text-white">
                     🛍️
                   </div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d]">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f]">
                     No Image Yet
                   </p>
                 </div>

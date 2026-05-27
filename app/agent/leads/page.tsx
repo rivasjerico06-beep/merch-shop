@@ -463,16 +463,45 @@ export default function AgentLeadsPage() {
     lead.created_via === "website_request" && !lead.agent_acknowledged_at;
 
   const acceptInboundCallback = async (lead: Lead) => {
-    const { error } = await supabase.rpc("accept_my_inbound_callback", {
-      input_lead_id: lead.id,
-    });
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
 
-    if (error) {
-      addToast(error.message || "Unable to accept this callback request.", "error");
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
       return;
     }
 
-    addToast("Callback request accepted. You may now contact the customer.", "success");
+    const response = await fetch("/api/agent/leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "accept_callback",
+        lead_id: lead.id,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      if (response.status === 429 || payload.error === "RATE_LIMITED") {
+        addToast("Too many lead actions. Please try again shortly.", "error");
+      } else {
+        addToast(payload.message || "Unable to accept this callback request.", "error");
+      }
+      return;
+    }
+
+    addToast(
+      payload.message || "Callback request accepted. You may now contact the customer.",
+      "success"
+    );
+
     await loadLeads();
 
     setSelectedLead((previous) =>
@@ -485,10 +514,13 @@ export default function AgentLeadsPage() {
         : previous
     );
   };
-
+  
   const copyAssistedShoppingLink = async (lead: Lead) => {
     if (requiresInboundAcceptance(lead)) {
-      addToast("Accept this customer callback request before sending a shopping link.", "error");
+      addToast(
+        "Accept this customer callback request before sending a shopping link.",
+        "error"
+      );
       return;
     }
 
@@ -501,21 +533,47 @@ export default function AgentLeadsPage() {
       return;
     }
 
-    const { data, error } = await supabase.rpc("create_my_lead_assisted_link", {
-      input_lead_id: lead.id,
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
+      return;
+    }
+
+    const response = await fetch("/api/agent/leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "create_assisted_link",
+        lead_id: lead.id,
+      }),
     });
 
-    const linkRecord = Array.isArray(data)
-      ? (data[0] as { assist_token: string; expires_at: string } | undefined)
-      : undefined;
+    const payload = (await response.json().catch(() => ({}))) as {
+      assist_token?: string;
+      expires_at?: string;
+      message?: string;
+      error?: string;
+    };
 
-    if (error || !linkRecord?.assist_token) {
-      addToast(error?.message || "Unable to create assisted shopping link.", "error");
+    if (!response.ok || !payload.assist_token) {
+      if (response.status === 429 || payload.error === "RATE_LIMITED") {
+        addToast("Too many lead actions. Please try again shortly.", "error");
+      } else {
+        addToast(
+          payload.message || "Unable to create assisted shopping link.",
+          "error"
+        );
+      }
       return;
     }
 
     const link = `${window.location.origin}/products?assist=${encodeURIComponent(
-      linkRecord.assist_token
+      payload.assist_token
     )}`;
 
     try {
@@ -550,7 +608,7 @@ export default function AgentLeadsPage() {
     window.open("https://www.helloairdial.com/dial", "_blank", "noopener,noreferrer");
   };
 
-  const recordCallResult = async (event: React.FormEvent<HTMLFormElement>) => {
+ const recordCallResult = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!selectedLead) return;
@@ -592,36 +650,57 @@ export default function AgentLeadsPage() {
 
     setSavingCall(true);
 
-    const { error } = await supabase.rpc("record_agent_helloairdial_call", {
-      input_lead_id: selectedLead.id,
-      input_outcome: callForm.outcome,
-      input_notes: callForm.notes.trim() || null,
-      input_follow_up_at: callForm.follow_up_at
-        ? new Date(callForm.follow_up_at).toISOString()
-        : null,
-      input_external_call_id: callForm.external_call_id.trim() || null,
-      input_call_duration_seconds: duration,
-      input_actual_call_cost: cost,
-      input_caller_id_used: callForm.caller_id_used.trim() || null,
-    });
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
 
-    if (error) {
-      addToast(error.message || "Unable to record call result.", "error");
-      console.error("Record HelloAirDial result error:", error);
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
       setSavingCall(false);
       return;
     }
 
-    addToast("HelloAirDial call result recorded.", "success");
+    const response = await fetch("/api/agent/leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "record_call",
+        lead_id: selectedLead.id,
+        outcome: callForm.outcome,
+        notes: callForm.notes.trim() || null,
+        follow_up_at: callForm.follow_up_at
+          ? new Date(callForm.follow_up_at).toISOString()
+          : null,
+        external_call_id: callForm.external_call_id.trim() || null,
+        call_duration_seconds: duration,
+        actual_call_cost: cost,
+        caller_id_used: callForm.caller_id_used.trim() || null,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      if (response.status === 429 || payload.error === "RATE_LIMITED") {
+        addToast("Too many lead actions. Please try again shortly.", "error");
+      } else {
+        addToast(payload.message || "Unable to record call result.", "error");
+      }
+      setSavingCall(false);
+      return;
+    }
+
+    addToast(payload.message || "HelloAirDial call result recorded.", "success");
     setCallForm(emptyCallForm);
+    setSelectedLead(null);
     await loadLeads();
-
-    const refreshed = leads.find((lead) => lead.id === selectedLead.id);
-    if (refreshed) setSelectedLead(refreshed);
-
     setSavingCall(false);
   };
-
   const markDoNotContact = async (lead: Lead) => {
     const reason = window.prompt(
       "Reason for Do Not Contact status:",

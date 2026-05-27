@@ -124,7 +124,6 @@ export default function AssistancePage() {
 
   useEffect(() => {
     void loadPage();
-    // Refill the selected product when arriving from a product assistance button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProductFromLink]);
 
@@ -158,7 +157,6 @@ export default function AssistancePage() {
       if (refreshTimer) window.clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-    // Subscribe only after the signed-in customer is known.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -301,7 +299,6 @@ export default function AssistancePage() {
     setSubmitting(false);
   };
 
-// Replace only your current withdrawRequest function with this block.
   const withdrawRequest = async (
     request: AssistanceRequest,
     doNotCall: boolean
@@ -364,8 +361,8 @@ export default function AssistancePage() {
   if (loading) {
     return (
       <AppShell title="Request Assistance" toasts={toasts}>
-        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#58948f]/30 bg-white dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -374,18 +371,18 @@ export default function AssistancePage() {
   if (!userId) {
     return (
       <AppShell title="Request Assistance" toasts={toasts}>
-        <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+        <section className="mx-auto max-w-xl rounded-[2rem] border border-[#58948f]/30 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
             Customer Assistance
           </p>
           <h1 className="mt-4 text-4xl font-black">Request a Product Call</h1>
-          <p className="mt-4 text-[#725f4d] dark:text-gray-400">
+          <p className="mt-4 text-[#58948f] dark:text-gray-400">
             Log in first so your assistance request and any assisted order can
             be connected securely to your account.
           </p>
           <Link
             href="/login?redirect=/assistance"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#093459] dark:bg-white dark:text-black"
           >
             Log In to Continue
           </Link>
@@ -396,14 +393,14 @@ export default function AssistancePage() {
 
   return (
     <AppShell title="Request Assistance" toasts={toasts}>
-      <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+      <section className="rounded-[2.5rem] border border-[#58948f]/30 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
           Product Assistance
         </p>
         <h1 className="mt-3 text-4xl font-black md:text-6xl">
           Request a Call
         </h1>
-        <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
+        <p className="mt-3 max-w-3xl text-[#58948f] dark:text-gray-400">
           Need guidance before ordering? Submit your request and an available
           approved agent may call you through HelloAirDial regarding the product
           you selected.
@@ -413,10 +410,10 @@ export default function AssistancePage() {
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <form
           onSubmit={submitRequest}
-          className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+          className="rounded-[2rem] border border-[#58948f]/30 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
         >
           <h2 className="text-2xl font-black">Callback Details</h2>
-          <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
+          <p className="mt-1 text-sm text-[#58948f] dark:text-gray-400">
             Only submit a number where you want to receive this requested call.
           </p>
 
@@ -485,7 +482,7 @@ export default function AssistancePage() {
           </div>
 
           <div className="mt-4">
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
+            <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#58948f] dark:text-gray-400">
               Notes (Optional)
             </label>
             <textarea
@@ -499,11 +496,11 @@ export default function AssistancePage() {
                 }))
               }
               placeholder="Question about quantity, product details, checkout assistance..."
-              className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+              className="w-full rounded-2xl border border-[#58948f]/40 bg-white px-4 py-3 text-sm outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
             />
           </div>
 
-          <label className="mt-5 flex gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-100">
+          <label className="mt-5 flex gap-3 rounded-2xl border border-[#58948f]/30 bg-[#58948f]/10 p-4 text-sm text-[#093459] dark:border-[#58948f]/20 dark:bg-[#58948f]/10 dark:text-[#d9efed]">
             <input
               type="checkbox"
               checked={form.callback_consent}
@@ -513,7 +510,7 @@ export default function AssistancePage() {
                   callback_consent: event.target.checked,
                 }))
               }
-              className="mt-1 h-4 w-4 accent-violet-600"
+              className="mt-1 h-4 w-4 accent-[#58948f]"
             />
             <span>
               I request a call about my selected product and permit an assigned
@@ -525,7 +522,7 @@ export default function AssistancePage() {
           <button
             type="submit"
             disabled={submitting || Boolean(activeRequest)}
-            className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
+            className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
           >
             {activeRequest
               ? "Active Request Already Exists"
@@ -535,15 +532,15 @@ export default function AssistancePage() {
           </button>
         </form>
 
-        <aside className="h-fit rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <aside className="h-fit rounded-[2rem] border border-[#58948f]/30 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <h2 className="text-2xl font-black">My Requests</h2>
-          <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
+          <p className="mt-1 text-sm text-[#58948f] dark:text-gray-400">
             You control whether agents may continue calling about your request.
           </p>
 
           <div className="mt-5 space-y-4">
             {requests.length === 0 ? (
-              <p className="rounded-3xl bg-[#f8efe4] p-6 text-center text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+              <p className="rounded-3xl bg-[#58948f]/10 p-6 text-center text-sm text-[#58948f] dark:bg-white/[0.05] dark:text-gray-400">
                 You have no assistance requests yet.
               </p>
             ) : (
@@ -559,14 +556,14 @@ export default function AssistancePage() {
                 return (
                   <div
                     key={request.id}
-                    className="rounded-3xl border border-[#eadfd1] p-4 dark:border-white/10"
+                    className="rounded-3xl border border-[#58948f]/20 p-4 dark:border-white/10"
                   >
                     <div className="flex justify-between gap-3">
                       <div>
                         <p className="font-black">
                           {request.product_interest || "Product Assistance"}
                         </p>
-                        <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
+                        <p className="mt-1 text-xs text-[#58948f] dark:text-gray-400">
                           Requested {new Date(request.created_at).toLocaleString()}
                         </p>
                       </div>
@@ -574,7 +571,7 @@ export default function AssistancePage() {
                     </div>
 
                     {request.preferred_callback_at && (
-                      <p className="mt-3 text-sm text-[#725f4d] dark:text-gray-300">
+                      <p className="mt-3 text-sm text-[#58948f] dark:text-gray-300">
                         Preferred call time:{" "}
                         {new Date(request.preferred_callback_at).toLocaleString()}
                       </p>
@@ -586,7 +583,7 @@ export default function AssistancePage() {
                           type="button"
                           disabled={actionId === request.id}
                           onClick={() => withdrawRequest(request, false)}
-                          className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-black transition hover:bg-zinc-950 hover:text-white dark:border-white/10"
+                          className="rounded-full border border-[#58948f]/40 px-4 py-2 text-xs font-black transition hover:bg-[#093459] hover:text-white dark:border-white/10"
                         >
                           Cancel Request
                         </button>
@@ -626,7 +623,7 @@ function StatusBadge({ status }: { status: string }) {
       : status === "do_not_contact"
         ? "bg-red-600"
         : status === "assigned" || status === "interested" || status === "follow_up"
-          ? "bg-violet-600"
+          ? "bg-[#58948f]"
           : status === "not_interested"
             ? "bg-zinc-500"
             : "bg-amber-500 text-black";
@@ -655,7 +652,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
+      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#58948f] dark:text-gray-400">
         {label}
       </label>
       <input
@@ -663,7 +660,7 @@ function Field({
         value={value}
         maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+        className="w-full rounded-2xl border border-[#58948f]/40 bg-white px-4 py-3 text-sm outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
       />
     </div>
   );
