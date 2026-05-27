@@ -175,27 +175,25 @@ export default function RewardsPage() {
     }
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <AppShell title="Rewards" toasts={toasts}>
-        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#58948f]/30 bg-[#58948f]/5 dark:border-[#58948f]/20 dark:bg-[#093459]/10">
+        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#58948f]/40 bg-white dark:border-white/10 dark:bg-white/[0.04]">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
   }
 
-  // ── Not logged in ────────────────────────────────────────────────────────
   if (!userId) {
     return (
       <AppShell title="Rewards" toasts={toasts}>
-        <section className="mx-auto max-w-xl rounded-[2rem] border border-[#58948f]/30 bg-[#58948f]/5 p-8 text-center shadow-sm dark:border-[#58948f]/20 dark:bg-[#093459]/20">
+        <section className="mx-auto max-w-xl rounded-[2rem] border border-[#58948f]/40 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
             Login required
           </p>
           <h1 className="mt-4 text-4xl font-black">Your Rewards</h1>
-          <p className="mt-4 text-[#725f4d] dark:text-[#6fb0aa]">
+          <p className="mt-4 text-zinc-500 dark:text-gray-400">
             Log in to view your spending progress and earned coupons.
           </p>
           <Link
@@ -209,12 +207,9 @@ export default function RewardsPage() {
     );
   }
 
-  // ── Main page ────────────────────────────────────────────────────────────
   return (
     <AppShell title="Rewards" toasts={toasts}>
-
-      {/* ── HERO HEADER ── */}
-      <section className="rounded-[2.5rem] border border-[#58948f]/30 bg-[#58948f]/5 p-6 dark:border-[#58948f]/20 dark:bg-[#093459]/10 md:p-8">
+      <section className="rounded-[2.5rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
@@ -223,28 +218,26 @@ export default function RewardsPage() {
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
               Purchase Milestones
             </h1>
-            <p className="mt-3 max-w-2xl text-[#725f4d] dark:text-[#6fb0aa]/80">
+            <p className="mt-3 max-w-2xl text-zinc-500 dark:text-gray-400">
               Rewards are based on your delivered purchase total. Earn one-time
               discount coupons as you reach each milestone.
             </p>
           </div>
 
-          {/* Reward status pill */}
-          <div className="rounded-3xl border border-[#58948f]/30 bg-[#58948f]/10 p-5 dark:border-[#58948f]/25 dark:bg-[#093459]/30">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f]">
+          <div className="rounded-3xl bg-[#58948f]/10 p-5 dark:bg-[#093459]/40">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f] dark:text-[#58948f]">
               Reward Status
             </p>
             <p className="mt-2 text-xl font-black">
               {progress?.reward_status || "Building Rewards"}
             </p>
-            <p className="mt-1 text-sm text-[#725f4d] dark:text-[#6fb0aa]/80">
+            <p className="mt-1 text-sm text-zinc-500 dark:text-gray-400">
               {availableCoupons.length} coupon(s) available
             </p>
           </div>
         </div>
       </section>
 
-      {/* ── STAT CARDS ── */}
       <section className="mt-6 grid gap-5 md:grid-cols-3">
         <StatCard label="Delivered Spending" value={formatUSD(totalSpent)} />
         <StatCard label="VIP Progress" value={`${progressPercent.toFixed(0)}%`} />
@@ -254,12 +247,11 @@ export default function RewardsPage() {
         />
       </section>
 
-      {/* ── PROGRESS BAR ── */}
-      <section className="mt-6 rounded-[2rem] border border-[#58948f]/30 bg-[#58948f]/5 p-6 dark:border-[#58948f]/20 dark:bg-[#093459]/10">
+      <section className="mt-6 rounded-[2rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h2 className="text-2xl font-black">Your Progress</h2>
-            <p className="mt-1 text-sm text-[#725f4d] dark:text-[#6fb0aa]/80">
+            <p className="mt-1 text-sm text-zinc-500 dark:text-gray-400">
               Your highest reward milestone is {formatUSD(topGoal)} in delivered orders.
             </p>
           </div>
@@ -268,15 +260,14 @@ export default function RewardsPage() {
           </p>
         </div>
 
-        {/* Progress track */}
-        <div className="mt-6 h-4 overflow-hidden rounded-full bg-[#093459]/15 dark:bg-[#58948f]/15">
+        {/* Progress bar — track: teal tint light / navy tint dark; fill: teal light / navy dark */}
+        <div className="mt-6 h-4 overflow-hidden rounded-full bg-[#58948f]/20 dark:bg-[#093459]/60">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#093459] to-[#58948f] transition-all duration-700"
+            className="h-full rounded-full bg-[#58948f] transition-all duration-500 dark:bg-[#093459]"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        {/* Tier cards */}
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {tiers.map((tier) => {
             const reached = totalSpent >= Number(tier.minimum_spend);
@@ -284,28 +275,23 @@ export default function RewardsPage() {
             return (
               <div
                 key={tier.code}
-                className={`rounded-3xl border p-5 transition-colors ${
+                className={`rounded-3xl border p-5 ${
                   reached
-                    /* reached: teal-tinted in both modes */
-                    ? "border-[#58948f]/40 bg-[#58948f]/10 dark:border-[#58948f]/35 dark:bg-[#58948f]/15"
-                    /* locked: navy-tinted in both modes */
-                    : "border-[#093459]/20 bg-[#093459]/5 dark:border-[#58948f]/15 dark:bg-[#093459]/20"
+                    ? "border-green-200 bg-green-50 dark:border-green-400/20 dark:bg-green-400/10"
+                    : "border-[#58948f]/30 bg-[#58948f]/10 dark:border-[#093459]/60 dark:bg-[#093459]/30"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-black">{tier.name}</p>
-                    <p className="mt-1 text-sm text-[#725f4d] dark:text-[#6fb0aa]/80">
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-gray-400">
                       Spend {formatUSD(tier.minimum_spend)} in delivered orders
                     </p>
                   </div>
 
-                  {/* Status badge */}
                   <span
                     className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
-                      reached
-                        ? "bg-[#58948f]"          /* teal = earned */
-                        : "bg-[#093459]"          /* navy = locked */
+                      reached ? "bg-green-600" : "bg-zinc-500"
                     }`}
                   >
                     {reached ? "Earned" : "Locked"}
@@ -336,21 +322,19 @@ export default function RewardsPage() {
         </div>
       </section>
 
-      {/* ── COUPONS ── */}
-      <section className="mt-6 rounded-[2rem] border border-[#58948f]/30 bg-[#58948f]/5 p-6 dark:border-[#58948f]/20 dark:bg-[#093459]/10">
+      <section className="mt-6 rounded-[2rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div>
           <h2 className="text-2xl font-black">Your Coupons</h2>
-          <p className="mt-1 text-sm text-[#725f4d] dark:text-[#6fb0aa]/80">
+          <p className="mt-1 text-sm text-zinc-500 dark:text-gray-400">
             Coupons are issued once you reach a delivered-purchase milestone.
           </p>
         </div>
 
         <div className="mt-5 space-y-3">
           {coupons.length === 0 ? (
-            /* Empty state */
-            <div className="rounded-3xl border border-[#58948f]/20 bg-[#093459]/8 p-6 text-center dark:border-[#58948f]/15 dark:bg-[#093459]/25">
+            <div className="rounded-3xl bg-[#58948f]/10 p-6 text-center dark:bg-[#093459]/30">
               <p className="font-black">No earned coupons yet</p>
-              <p className="mt-2 text-sm text-[#725f4d] dark:text-[#6fb0aa]/80">
+              <p className="mt-2 text-sm text-zinc-500 dark:text-gray-400">
                 Continue shopping and complete delivered orders to unlock rewards.
               </p>
             </div>
@@ -365,38 +349,31 @@ export default function RewardsPage() {
               return (
                 <div
                   key={coupon.id}
-                  className={`flex flex-col justify-between gap-4 rounded-3xl border p-5 transition-colors md:flex-row md:items-center ${
-                    usable
-                      /* active coupon: teal accent */
-                      ? "border-[#58948f]/40 bg-[#58948f]/8 dark:border-[#58948f]/30 dark:bg-[#58948f]/10"
-                      /* used / expired: muted navy */
-                      : "border-[#093459]/20 bg-[#093459]/5 dark:border-[#58948f]/15 dark:bg-[#093459]/20"
-                  }`}
+                  className="flex flex-col justify-between gap-4 rounded-3xl border border-[#58948f]/30 bg-[#58948f]/10 p-5 dark:border-[#093459]/60 dark:bg-[#093459]/30 md:flex-row md:items-center"
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xl font-black">
                         {Number(coupon.discount_percent).toFixed(0)}% OFF
                       </p>
-                      {/* Status badge */}
                       <span
                         className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
                           usable
-                            ? "bg-[#58948f]"       /* teal = available */
+                            ? "bg-green-600"
                             : displayStatus === "used"
-                              ? "bg-[#093459]"     /* navy = used */
-                              : "bg-red-500"       /* red = expired/cancelled */
+                              ? "bg-zinc-500"
+                              : "bg-red-600"
                         }`}
                       >
                         {displayStatus}
                       </span>
                     </div>
 
-                    <p className="mt-2 font-mono text-sm font-bold text-[#58948f]">
+                    <p className="mt-2 font-mono text-sm font-bold text-[#58948f] dark:text-[#58948f]">
                       {coupon.coupon_code}
                     </p>
 
-                    <p className="mt-2 text-sm text-[#725f4d] dark:text-[#6fb0aa]/80">
+                    <p className="mt-2 text-sm text-zinc-500 dark:text-gray-400">
                       Minimum order: {formatUSD(coupon.minimum_order_amount)} ·
                       Maximum discount: {formatUSD(coupon.max_discount)} ·
                       Expires: {new Date(coupon.expires_at).toLocaleDateString()}
@@ -419,18 +396,16 @@ export default function RewardsPage() {
         </div>
       </section>
 
-      <p className="mt-6 text-center text-xs text-[#725f4d] dark:text-[#6fb0aa]/70">
+      <p className="mt-6 text-center text-xs text-zinc-500 dark:text-gray-400">
         Coupon application during checkout will be enabled in the next setup step.
       </p>
     </AppShell>
   );
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[2rem] border border-[#58948f]/30 bg-[#58948f]/5 p-6 dark:border-[#58948f]/20 dark:bg-[#093459]/15">
+    <div className="rounded-[2rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f]">
         {label}
       </p>
@@ -442,7 +417,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
 function DetailLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-[#725f4d] dark:text-[#6fb0aa]/80">{label}</span>
+      <span className="text-zinc-500 dark:text-gray-400">{label}</span>
       <span className="font-bold">{value}</span>
     </div>
   );

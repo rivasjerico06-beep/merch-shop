@@ -52,9 +52,8 @@ export default function AppShell({
   const isAgentMode = !isAdmin && isApprovedAgent && accessMode === "agent";
 
   const pageBg = isDark
-    ? "bg-[#080808] text-white"
-    : "bg-[linear-gradient(135deg,#f6f0e8_0%,#fbf7f1_42%,#efe3d4_100%)] text-[#18120d]";
-
+       ? "bg-[#080808] text-white"
+       : "bg-white text-[#18120d]";
   const loadSessionData = async () => {
     const {
       data: { user },

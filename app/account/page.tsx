@@ -34,7 +34,7 @@ export default function AccountPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -145,78 +145,79 @@ export default function AccountPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-const saveProfile = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const saveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!userId) {
-    addToast("Please login first", "error");
-    return;
-  }
+    if (!userId) {
+      addToast("Please login first", "error");
+      return;
+    }
 
-  setProfileSaving(true);
+    setProfileSaving(true);
 
-  let parsed;
+    let parsed;
 
-  try {
-    parsed = profileSchema.parse(profileForm);
-  } catch (error) {
-    addToast(getValidationMessage(error), "error");
+    try {
+      parsed = profileSchema.parse(profileForm);
+    } catch (error) {
+      addToast(getValidationMessage(error), "error");
+      setProfileSaving(false);
+      return;
+    }
+
+    const payload = {
+      id: userId,
+      full_name: parsed.full_name,
+      phone: parsed.phone,
+      address: parsed.address,
+      city: parsed.city,
+      province: parsed.province,
+      postal_code: parsed.postal_code,
+      role: profile?.role || "customer",
+      profile_photo_url: profile?.profile_photo_url || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      addToast("Failed to save profile", "error");
+      console.error(error);
+    } else {
+      setProfile(data as Profile);
+      addToast("Profile saved", "success");
+    }
+
     setProfileSaving(false);
-    return;
-  }
-
-  const payload = {
-    id: userId,
-    full_name: parsed.full_name,
-    phone: parsed.phone,
-    address: parsed.address,
-    city: parsed.city,
-    province: parsed.province,
-    postal_code: parsed.postal_code,
-    role: profile?.role || "customer",
-    profile_photo_url: profile?.profile_photo_url || null,
-    updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .upsert(payload)
-    .select()
-    .single();
-
-  if (error) {
-    addToast("Failed to save profile", "error");
-    console.error(error);
-  } else {
-    setProfile(data as Profile);
-    addToast("Profile saved", "success");
-  }
-
-  setProfileSaving(false);
-};
   const uploadProfilePhoto = async () => {
-  if (!userId) {
-    addToast("Please login first", "error");
-    return;
-  }
+    if (!userId) {
+      addToast("Please login first", "error");
+      return;
+    }
 
-  if (!profilePhotoFile) {
-    addToast("Please select a photo first", "error");
-    return;
-  }
+    if (!profilePhotoFile) {
+      addToast("Please select a photo first", "error");
+      return;
+    }
 
-  try {
-    profileImageFileSchema.parse({
-      type: profilePhotoFile.type,
-      size: profilePhotoFile.size,
-      name: profilePhotoFile.name,
-    });
-  } catch (error) {
-    addToast(getValidationMessage(error), "error");
-    return;
-  }
+    try {
+      profileImageFileSchema.parse({
+        type: profilePhotoFile.type,
+        size: profilePhotoFile.size,
+        name: profilePhotoFile.name,
+      });
+    } catch (error) {
+      addToast(getValidationMessage(error), "error");
+      return;
+    }
 
-  setPhotoUploading(true);
+    setPhotoUploading(true);
 
     const safeName = profilePhotoFile.name.replace(/[^a-zA-Z0-9.-]/g, "-");
     const filePath = `${userId}/${Date.now()}-${safeName}`;
@@ -279,7 +280,7 @@ const saveProfile = async (e: React.FormEvent) => {
     return (
       <AppShell title="Account" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -289,10 +290,10 @@ const saveProfile = async (e: React.FormEvent) => {
     return (
       <AppShell title="Account" toasts={toasts}>
         <section className="mx-auto max-w-2xl rounded-[2.5rem] border border-black/10 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
             Account required
           </p>
-          <h1 className="mt-4 text-4xl font-black">Please login first</h1>
+          <h1 className="mt-4 text-4xl font-black text-[#093459] dark:text-white">Please login first</h1>
           <p className="mt-4 text-zinc-600 dark:text-gray-400">
             Your account page is separate from the login page. Login first to
             manage your profile, saved address, photo, and orders.
@@ -300,7 +301,7 @@ const saveProfile = async (e: React.FormEvent) => {
 
           <Link
             href="/login?redirect=/account"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+            className="mt-6 inline-block rounded-full bg-[#093459] px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-white dark:text-black dark:hover:bg-[#58948f]"
           >
             Go to Login
           </Link>
@@ -314,10 +315,10 @@ const saveProfile = async (e: React.FormEvent) => {
       <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Customer Account
             </p>
-            <h1 className="mt-3 text-4xl font-black md:text-6xl">
+            <h1 className="mt-3 text-4xl font-black text-[#00000] dark:text-white md:text-6xl">
               My Account
             </h1>
             <p className="mt-3 max-w-2xl text-zinc-600 dark:text-gray-400">
@@ -330,7 +331,7 @@ const saveProfile = async (e: React.FormEvent) => {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-gray-400">
               Account Role
             </p>
-            <p className="mt-1 text-3xl font-black">
+            <p className="mt-1 text-3xl font-black text-[#093459] dark:text-white">
               {profile?.role || "customer"}
             </p>
             <p className="text-sm text-zinc-600 dark:text-gray-400">
@@ -350,19 +351,19 @@ const saveProfile = async (e: React.FormEvent) => {
                 className="mx-auto h-36 w-36 rounded-[2rem] object-cover"
               />
             ) : (
-              <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[2rem] bg-violet-600 text-5xl font-black text-white">
+              <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[2rem] bg-[#58948f] text-5xl font-black text-white">
                 {profile?.full_name?.[0]?.toUpperCase() || "U"}
               </div>
             )}
 
-            <h2 className="mt-5 text-2xl font-black">
+            <h2 className="mt-5 text-2xl font-black text-[#093459] dark:text-white">
               {profile?.full_name || "No name yet"}
             </h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
               {userEmail}
             </p>
 
-            <span className="mt-3 inline-block rounded-full bg-violet-600 px-4 py-2 text-xs font-black uppercase tracking-[0.15em] text-white">
+            <span className="mt-3 inline-block rounded-full bg-[#58948f] px-4 py-2 text-xs font-black uppercase tracking-[0.15em] text-white">
               {profile?.role || "customer"}
             </span>
           </div>
@@ -375,7 +376,7 @@ const saveProfile = async (e: React.FormEvent) => {
           <div className="mt-6 space-y-3">
             <Link
               href="/orders"
-              className="block rounded-2xl border border-black/10 py-4 text-center text-sm font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+              className="block rounded-2xl border border-black/10 py-4 text-center text-sm font-black uppercase tracking-[0.2em] transition hover:bg-[#093459] hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
             >
               View Orders
             </Link>
@@ -383,7 +384,7 @@ const saveProfile = async (e: React.FormEvent) => {
             {profile?.role === "admin" && (
               <Link
                 href="/admin"
-                className="block rounded-2xl bg-violet-600 py-4 text-center text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-800"
+                className="block rounded-2xl bg-[#58948f] py-4 text-center text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459]"
               >
                 Admin Dashboard
               </Link>
@@ -400,7 +401,7 @@ const saveProfile = async (e: React.FormEvent) => {
 
         <div className="space-y-6">
           <section className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-            <h2 className="text-2xl font-black">1x1 Profile Photo</h2>
+            <h2 className="text-2xl font-black text-[#093459] dark:text-white">1x1 Profile Photo</h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
               Optional. Upload a square-looking photo for your account.
             </p>
@@ -426,7 +427,7 @@ const saveProfile = async (e: React.FormEvent) => {
               <button
                 onClick={uploadProfilePhoto}
                 disabled={photoUploading || !profilePhotoFile}
-                className="rounded-2xl bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                className="rounded-2xl bg-[#093459] px-6 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-[#58948f]"
               >
                 {photoUploading ? "Uploading..." : "Upload"}
               </button>
@@ -434,7 +435,7 @@ const saveProfile = async (e: React.FormEvent) => {
           </section>
 
           <section className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-            <h2 className="text-2xl font-black">Profile & Delivery Details</h2>
+            <h2 className="text-2xl font-black text-[#093459] dark:text-white">Profile & Delivery Details</h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
               These details can be used during checkout.
             </p>
@@ -524,7 +525,7 @@ const saveProfile = async (e: React.FormEvent) => {
               <div className="md:col-span-2">
                 <button
                   disabled={profileSaving}
-                  className="w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                  className="w-full rounded-2xl bg-[#093459] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-[#58948f]"
                 >
                   {profileSaving ? "Saving..." : "Save Profile"}
                 </button>
@@ -560,7 +561,7 @@ function ProfileInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 disabled:opacity-70 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
+        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] disabled:opacity-70 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
       />
     </div>
   );
@@ -572,7 +573,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-black uppercase tracking-[0.15em] text-zinc-500 dark:text-gray-400">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-black">{value}</p>
+      <p className="mt-2 text-2xl font-black text-[#093459] dark:text-white">{value}</p>
     </div>
   );
 }

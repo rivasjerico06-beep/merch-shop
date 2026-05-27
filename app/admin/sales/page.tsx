@@ -71,7 +71,8 @@ type NamedValue = { name: string; value: number };
 type AgentRow = { name: string; revenue: number; orders: number };
 type ProductRow = { name: string; revenue: number; units: number };
 
-const chartColors = ["#7c3aed", "#18181b", "#16a34a", "#f59e0b", "#dc2626", "#2563eb"];
+// Swapped the first two colors to make #58948f primary
+const chartColors = ["#58948f", "#093459", "#f59e0b", "#3b82f6", "#ec4899", "#18181b"];
 
 export default function AdminSalesPage() {
   const [adminProfile, setAdminProfile] = useState<Profile | null>(null);
@@ -391,7 +392,7 @@ export default function AdminSalesPage() {
     return (
       <AppShell title="Sales Analytics" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -439,7 +440,7 @@ export default function AdminSalesPage() {
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Admin Intelligence
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -459,8 +460,8 @@ export default function AdminSalesPage() {
                 onClick={() => setRange(value)}
                 className={`rounded-full px-4 py-3 text-xs font-black uppercase tracking-[0.15em] transition ${
                   range === value
-                    ? "bg-violet-600 text-white"
-                    : "border border-[#cdbba7] bg-white hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
+                    ? "bg-[#58948f] text-white"
+                    : "border border-[#cdbba7] bg-white hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
                 }`}
               >
                 {value === "all" ? "All Time" : `${value} Days`}
@@ -470,7 +471,7 @@ export default function AdminSalesPage() {
             <button
               type="button"
               onClick={loadSales}
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.15em] text-white transition hover:bg-[#58948f] dark:bg-white dark:text-black"
             >
               Refresh
             </button>
@@ -502,7 +503,7 @@ export default function AdminSalesPage() {
                 type="monotone"
                 dataKey="revenue"
                 name="Revenue"
-                stroke="#7c3aed"
+                stroke="#58948f"
                 strokeWidth={3}
                 dot={false}
               />
@@ -548,7 +549,7 @@ export default function AdminSalesPage() {
                 <XAxis type="number" tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={112} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(value) => formatUSD(Number(value))} />
-                <Bar dataKey="revenue" name="Revenue" fill="#7c3aed" radius={[0, 10, 10, 0]} />
+                <Bar dataKey="revenue" name="Revenue" fill="#58948f" radius={[0, 10, 10, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -590,7 +591,7 @@ export default function AdminSalesPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} width={60} />
                 <Tooltip formatter={(value) => formatUSD(Number(value))} />
-                <Bar dataKey="revenue" name="Revenue" fill="#16a34a" radius={[10, 10, 0, 0]} />
+                <Bar dataKey="revenue" name="Revenue" fill="#58948f" radius={[10, 10, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -633,7 +634,7 @@ export default function AdminSalesPage() {
             </div>
             <Link
               href="/admin/customers"
-              className="text-xs font-black uppercase tracking-[0.15em] text-violet-600"
+              className="text-xs font-black uppercase tracking-[0.15em] text-[#58948f]"
             >
               View Customers
             </Link>
@@ -648,11 +649,11 @@ export default function AdminSalesPage() {
               vipCustomers.map((customer) => (
                 <div
                   key={customer.user_id}
-                  className="flex flex-col justify-between gap-3 rounded-3xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-400/20 dark:bg-violet-400/10 sm:flex-row sm:items-center"
+                  className="flex flex-col justify-between gap-3 rounded-3xl border border-[#58948f]/30 bg-[#58948f]/5 p-4 dark:border-[#58948f]/20 dark:bg-[#58948f]/10 sm:flex-row sm:items-center"
                 >
                   <div>
                     <p className="font-black">{customer.full_name || "Unnamed Customer"}</p>
-                    <p className="text-xs font-black uppercase tracking-[0.15em] text-violet-600">
+                    <p className="text-xs font-black uppercase tracking-[0.15em] text-[#58948f]">
                       {customer.reward_status || "VIP Reward Reached"}
                     </p>
                   </div>
@@ -687,7 +688,7 @@ function StatCard({
     <div
       className={`rounded-[2rem] border p-5 shadow-sm ${
         highlight
-          ? "border-violet-200 bg-violet-50 dark:border-violet-400/20 dark:bg-violet-400/10"
+          ? "border-[#58948f]/30 bg-[#58948f]/5 dark:border-[#58948f]/20 dark:bg-[#58948f]/10"
           : "border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"
       }`}
     >
@@ -790,14 +791,14 @@ function AccessCard({
 }) {
   return (
     <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-violet-600"}`}>
+      <p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-[#58948f]"}`}>
         {label}
       </p>
       <h1 className="mt-4 text-4xl font-black">{title}</h1>
       <p className="mt-4 text-[#725f4d] dark:text-gray-400">{body}</p>
       <Link
         href={href}
-        className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+        className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] dark:bg-white dark:text-black"
       >
         {button}
       </Link>

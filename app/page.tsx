@@ -50,10 +50,9 @@ export default function LandingPage() {
   return (
     <AppShell title="Welcome">
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden rounded-[2.75rem] border border-[#093459]/20 bg-[#093459] p-8 text-white shadow-sm dark:border-[#58948f]/20 dark:bg-black md:p-14">
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#58948f]/30 blur-3xl" />
-        <div className="absolute -bottom-28 left-10 h-72 w-72 rounded-full bg-[#58948f]/10 blur-3xl" />
-
+        <section className="relative overflow-hidden rounded-[2.75rem] border border-[#58948f]/20 bg-[#58948f] p-8 text-white shadow-sm dark:border-[#58948f]/20 dark:bg-black md:p-14">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#093459]/30 blur-3xl" />
+        <div className="absolute -bottom-28 left-10 h-72 w-72 rounded-full bg-[#093459]/20 blur-3xl" />
         <div className="relative grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.35em] text-[#6fb0aa]">
@@ -73,7 +72,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/products"
-                className="rounded-full bg-[#58948f] px-7 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#6fb0aa]"
+                 className="rounded-full border border-white/20 px-7 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-[#093459]"
               >
                 Shop Now
               </Link>

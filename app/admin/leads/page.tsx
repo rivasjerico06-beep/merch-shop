@@ -36,6 +36,12 @@ type Lead = {
   next_follow_up_at: string | null;
   last_contacted_at: string | null;
   created_at: string;
+  created_via?: string | null;
+  agent_acknowledged_at?: string | null;
+  assignment_acceptance_due_at?: string | null;
+  first_contact_due_at?: string | null;
+  reassignment_count?: number | null;
+  first_contact_escalated_at?: string | null;
 };
 
 type Activity = {
@@ -76,6 +82,27 @@ type ConversionMetric = {
   delivered_revenue: number;
 };
 
+type QualityMetric = {
+  agent_id: string;
+  agent_name: string;
+  auto_assigned_requests: number;
+  accepted_requests: number;
+  acceptance_rate_percent: number;
+  sla_eligible_accepted_requests: number;
+  first_contact_within_sla: number;
+  first_contact_sla_percent: number;
+  missed_unaccepted_assignments: number;
+  accepted_sla_escalations: number;
+  delivered_conversions: number;
+  delivered_revenue: number;
+  coaching_flag:
+    | "insufficient_data"
+    | "coach_acceptance_reliability"
+    | "coach_response_time"
+    | "on_track";
+  coaching_reason: string;
+};
+
 type ReviewRequest = {
   id: string;
   requested_by: string;
@@ -98,6 +125,15 @@ type OperationalException = {
   phone: string;
   detail: string;
   occurred_at: string;
+};
+
+type AutomationRun = {
+  run_type: "expired_acceptance_sweep" | "first_contact_sla_sweep";
+  ran_at: string;
+  requeued_count: number;
+  redispatched_count: number;
+  escalated_count: number;
+  notes: string | null;
 };
 
 type LeadForm = {
@@ -135,8 +171,11 @@ export default function AdminLeadsPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [orders, setOrders] = useState<AttributedOrder[]>([]);
   const [conversionMetrics, setConversionMetrics] = useState<ConversionMetric[]>([]);
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([]);
+  const [qualityDays, setQualityDays] = useState(30);
   const [reviewRequests, setReviewRequests] = useState<ReviewRequest[]>([]);
   const [operationalExceptions, setOperationalExceptions] = useState<OperationalException[]>([]);
+  const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>([]);
   const [form, setForm] = useState<LeadForm>(emptyForm);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [search, setSearch] = useState("");
@@ -192,8 +231,10 @@ export default function AdminLeadsPage() {
       activitiesResult,
       ordersResult,
       metricResult,
+      qualityResult,
       requestResult,
       exceptionResult,
+      automationResult,
     ] = await Promise.all([
         supabase.from("agent_profiles")
           .select("user_id, display_name, referral_code")
@@ -202,7 +243,7 @@ export default function AdminLeadsPage() {
           .select("id, full_name, phone")
           .eq("role", "customer").order("full_name"),
         supabase.from("sales_leads")
-          .select("id, assigned_agent_id, customer_user_id, converted_order_id, converted_at, customer_name, phone, email, source, status, call_permission_status, do_not_contact, do_not_contact_reason, product_interest, next_follow_up_at, last_contacted_at, created_at")
+          .select("id, assigned_agent_id, customer_user_id, converted_order_id, converted_at, customer_name, phone, email, source, status, call_permission_status, do_not_contact, do_not_contact_reason, product_interest, next_follow_up_at, last_contacted_at, created_at, created_via, agent_acknowledged_at, assignment_acceptance_due_at, first_contact_due_at, reassignment_count, first_contact_escalated_at")
           .order("created_at", { ascending: false }),
         supabase.from("lead_activities")
           .select("id, lead_id, activity_type, outcome, notes, related_order_id, recorded_by_system, call_provider, call_duration_seconds, actual_call_cost, created_at")
@@ -212,35 +253,52 @@ export default function AdminLeadsPage() {
           .not("agent_id", "is", null)
           .order("created_at", { ascending: false }),
         supabase.rpc("get_admin_agent_lead_conversion_metrics"),
+        supabase.rpc("get_admin_agent_quality_monitoring", {
+          input_days: qualityDays,
+        }),
         supabase.from("lead_review_requests")
           .select("id, requested_by, related_lead_id, request_type, phone_normalized, reason, status, resolution_notes, created_at")
           .eq("status", "open")
           .order("created_at", { ascending: false }),
         supabase.rpc("get_admin_operational_lead_exceptions"),
+        supabase.rpc("get_admin_callback_automation_runs"),
       ]);
 
-    if (
-      agentsResult.error ||
-      customersResult.error ||
-      leadsResult.error ||
-      activitiesResult.error ||
-      ordersResult.error ||
-      metricResult.error ||
-      requestResult.error ||
-      exceptionResult.error
-    ) {
-      addToast("Some lead-management information could not be loaded.", "error");
-      console.warn("Admin lead data load issue:", {
-        agentsResult,
-        customersResult,
-        leadsResult,
-        activitiesResult,
-        ordersResult,
-        metricResult,
-        requestResult,
-        exceptionResult,
-      });
+    const failedLoads = [
+      { name: "Agents", error: agentsResult.error },
+      { name: "Customers", error: customersResult.error },
+      { name: "Leads", error: leadsResult.error },
+      { name: "Activities", error: activitiesResult.error },
+      { name: "Orders", error: ordersResult.error },
+      { name: "Conversion Metrics", error: metricResult.error },
+      { name: "Quality Metrics", error: qualityResult.error },
+      { name: "Review Requests", error: requestResult.error },
+      { name: "Operational Exceptions", error: exceptionResult.error },
+      { name: "Automation History", error: automationResult.error },
+    ].filter((item) => item.error);
+
+    if (failedLoads.length > 0) {
+      const firstFailure = failedLoads[0];
+
+      addToast(
+        `${firstFailure.name} failed: ${
+          firstFailure.error?.message || "Unknown database error"
+        }`,
+        "error"
+      );
+
+      console.warn(
+        "Admin lead load failures:",
+        failedLoads.map((item) => ({
+          query: item.name,
+          code: item.error?.code,
+          message: item.error?.message,
+          details: item.error?.details,
+          hint: item.error?.hint,
+        }))
+      );
     }
+
 
     setAgents((agentsResult.data || []) as ApprovedAgent[]);
     setCustomers((customersResult.data || []) as CustomerAccount[]);
@@ -248,12 +306,66 @@ export default function AdminLeadsPage() {
     setActivities((activitiesResult.data || []) as Activity[]);
     setOrders((ordersResult.data || []) as AttributedOrder[]);
     setConversionMetrics((metricResult.data || []) as ConversionMetric[]);
+    setQualityMetrics((qualityResult.data || []) as QualityMetric[]);
     setReviewRequests((requestResult.data || []) as ReviewRequest[]);
     setOperationalExceptions((exceptionResult.data || []) as OperationalException[]);
+    setAutomationRuns((automationResult.data || []) as AutomationRun[]);
     setLoading(false);
   };
 
   useEffect(() => { loadPage(); }, []);
+
+  useEffect(() => {
+    if (adminProfile?.role === "admin") {
+      void loadPage();
+    }
+    // Reload quality metrics when the admin changes the monitoring period.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qualityDays]);
+
+  useEffect(() => {
+    if (adminProfile?.role !== "admin") return;
+
+    let refreshTimer: number | undefined;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void loadPage();
+      }, 150);
+    };
+
+    const channel = supabase
+      .channel("admin-live-lead-operations")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sales_leads" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lead_activities" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lead_review_requests" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+    // Start the operations subscription only after admin access is confirmed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminProfile?.role]);
 
   const agentName = (agentId: string | null) =>
     agents.find((agent) => agent.user_id === agentId)?.display_name ||
@@ -284,6 +396,28 @@ export default function AdminLeadsPage() {
       deliveredRevenue,
     };
   }, [leads, orders]);
+
+  const qualitySummary = useMemo(() => ({
+    coachingRequired: qualityMetrics.filter((metric) =>
+      metric.coaching_flag.startsWith("coach_")
+    ).length,
+    onTrack: qualityMetrics.filter((metric) => metric.coaching_flag === "on_track").length,
+    totalMissedAssignments: qualityMetrics.reduce(
+      (total, metric) => total + Number(metric.missed_unaccepted_assignments || 0),
+      0
+    ),
+  }), [qualityMetrics]);
+
+  const automationSummary = useMemo(() => {
+    return automationRuns.reduce(
+      (totals, run) => ({
+        requeued: totals.requeued + Number(run.requeued_count || 0),
+        redispatched: totals.redispatched + Number(run.redispatched_count || 0),
+        escalated: totals.escalated + Number(run.escalated_count || 0),
+      }),
+      { requeued: 0, redispatched: 0, escalated: 0 }
+    );
+  }, [automationRuns]);
 
   const filteredLeads = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -476,6 +610,37 @@ export default function AdminLeadsPage() {
     await loadPage();
   };
 
+  const requeueUnacceptedCallback = async (leadId: string) => {
+    const reason = window.prompt(
+      "Reason for returning this unaccepted request to the queue:",
+      "Agent did not accept the callback assignment within 15 minutes."
+    );
+
+    if (reason === null) return;
+
+    if (reason.trim().length < 5) {
+      addToast("Provide a reason of at least 5 characters.", "error");
+      return;
+    }
+
+    setSavingLeadId(leadId);
+
+    const { error } = await supabase.rpc("admin_requeue_unaccepted_callback", {
+      input_lead_id: leadId,
+      input_reason: reason.trim(),
+    });
+
+    if (error) {
+      addToast(error.message || "Unable to return request to the queue.", "error");
+    } else {
+      addToast("Unaccepted request returned to queue for reassignment.", "success");
+      setSelectedLead(null);
+      await loadPage();
+    }
+
+    setSavingLeadId(null);
+  };
+
   const markDoNotContact = async (lead: Lead) => {
     const reason = window.prompt("Reason for Do Not Contact:", "Customer requested no further calls");
     if (reason === null) return;
@@ -564,16 +729,29 @@ export default function AdminLeadsPage() {
                   <p className="mt-3 text-sm text-[#725f4d] dark:text-gray-300">
                     {item.detail}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const lead = leads.find((row) => row.id === item.lead_id);
-                      if (lead) setSelectedLead(lead);
-                    }}
-                    className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-violet-600"
-                  >
-                    Open Lead Details
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const lead = leads.find((row) => row.id === item.lead_id);
+                        if (lead) setSelectedLead(lead);
+                      }}
+                      className="text-xs font-black uppercase tracking-[0.12em] text-violet-600"
+                    >
+                      Open Lead Details
+                    </button>
+
+                    {item.exception_type === "assignment_acceptance_overdue" && (
+                      <button
+                        type="button"
+                        disabled={savingLeadId === item.lead_id}
+                        onClick={() => requeueUnacceptedCallback(item.lead_id)}
+                        className="text-xs font-black uppercase tracking-[0.12em] text-red-600 disabled:opacity-50"
+                      >
+                        Return to Queue
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -644,6 +822,152 @@ export default function AdminLeadsPage() {
               ))
             )}
           </div>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-600">
+              Automated Operations
+            </p>
+            <h2 className="mt-2 text-2xl font-black">Callback Recovery History</h2>
+            <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
+              Safe requeue handles only unaccepted requests. Accepted requests that miss
+              the first-contact target are escalated for review, not automatically reassigned.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <StatCard label="Auto Requeued" value={automationSummary.requeued} />
+          <StatCard label="Auto Redispatched" value={automationSummary.redispatched} highlight />
+          <StatCard label="SLA Escalations" value={automationSummary.escalated} danger />
+        </div>
+
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#ded0bf] text-xs uppercase tracking-[0.16em] text-[#725f4d] dark:border-white/10 dark:text-gray-400">
+                <th className="py-4">Run Type</th>
+                <th className="py-4">Run Time</th>
+                <th className="py-4">Requeued</th>
+                <th className="py-4">Redispatched</th>
+                <th className="py-4">Escalated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {automationRuns.slice(0, 10).map((run, index) => (
+                <tr
+                  key={`${run.run_type}-${run.ran_at}-${index}`}
+                  className="border-b border-[#eadfd1] dark:border-white/5"
+                >
+                  <td className="py-4 font-black">{titleCase(run.run_type)}</td>
+                  <td className="py-4 text-[#725f4d] dark:text-gray-300">
+                    {new Date(run.ran_at).toLocaleString()}
+                  </td>
+                  <td className="py-4">{run.requeued_count}</td>
+                  <td className="py-4">{run.redispatched_count}</td>
+                  <td className="py-4">{run.escalated_count}</td>
+                </tr>
+              ))}
+              {automationRuns.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-[#725f4d] dark:text-gray-400">
+                    No automated recovery or escalation actions have been recorded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-600">
+              Coaching Monitor
+            </p>
+            <h2 className="mt-2 text-2xl font-black">Agent Quality Signals</h2>
+            <p className="mt-1 max-w-3xl text-sm text-[#725f4d] dark:text-gray-400">
+              Flags focus on acceptance reliability and callback response time.
+              Conversion results are shown for context only and do not independently trigger coaching.
+            </p>
+          </div>
+
+          <select
+            value={qualityDays}
+            onChange={(event) => setQualityDays(Number(event.target.value))}
+            className="rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm font-bold outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+          >
+            <option value={30}>Last 30 Days</option>
+            <option value={60}>Last 60 Days</option>
+            <option value={90}>Last 90 Days</option>
+          </select>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <StatCard label="Needs Coaching Review" value={qualitySummary.coachingRequired} danger />
+          <StatCard label="On Track" value={qualitySummary.onTrack} highlight />
+          <StatCard label="Missed Assignments" value={qualitySummary.totalMissedAssignments} />
+        </div>
+
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full min-w-[1150px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#ded0bf] text-xs uppercase tracking-[0.16em] text-[#725f4d] dark:border-white/10 dark:text-gray-400">
+                <th className="py-4">Agent</th>
+                <th className="py-4">Auto Assigned</th>
+                <th className="py-4">Accepted</th>
+                <th className="py-4">Acceptance Rate</th>
+                <th className="py-4">First-Contact SLA</th>
+                <th className="py-4">Missed</th>
+                <th className="py-4">Escalations</th>
+                <th className="py-4">Delivered</th>
+                <th className="py-4">Coaching Flag</th>
+              </tr>
+            </thead>
+            <tbody>
+              {qualityMetrics.map((metric) => (
+                <tr key={metric.agent_id} className="border-b border-[#eadfd1] align-top dark:border-white/5">
+                  <td className="py-4 font-black">{metric.agent_name}</td>
+                  <td className="py-4">{metric.auto_assigned_requests}</td>
+                  <td className="py-4">{metric.accepted_requests}</td>
+                  <td className="py-4 font-bold">{Number(metric.acceptance_rate_percent || 0).toFixed(1)}%</td>
+                  <td className="py-4 font-bold">
+                    {metric.sla_eligible_accepted_requests > 0
+                      ? `${Number(metric.first_contact_sla_percent || 0).toFixed(1)}%`
+                      : "—"}
+                  </td>
+                  <td className="py-4">{metric.missed_unaccepted_assignments}</td>
+                  <td className="py-4">{metric.accepted_sla_escalations}</td>
+                  <td className="py-4">{metric.delivered_conversions}</td>
+                  <td className="py-4">
+                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
+                      metric.coaching_flag === "on_track"
+                        ? "bg-green-600"
+                        : metric.coaching_flag === "insufficient_data"
+                          ? "bg-zinc-500"
+                          : "bg-red-600"
+                    }`}>
+                      {titleCase(metric.coaching_flag)}
+                    </span>
+                    <p className="mt-2 max-w-[260px] text-xs text-[#725f4d] dark:text-gray-400">
+                      {metric.coaching_reason}
+                    </p>
+                  </td>
+                </tr>
+              ))}
+              {qualityMetrics.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-[#725f4d] dark:text-gray-400">
+                    No approved agent quality data available yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -761,3 +1085,4 @@ function AccessCard({ title, body, href, button, danger=false }: { title:string;
 function Field({ label, value, onChange, type="text", required=false }: { label:string; value:string; onChange:(v:string)=>void; type?:string; required?:boolean }) { return <div><label className="mb-2 block text-xs font-black uppercase text-[#725f4d]">{label}</label><input required={required} type={type} value={value} onChange={(e) => onChange(e.target.value)} maxLength={254} className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 dark:bg-zinc-900 dark:text-white" /></div>; }
 function Select({ label, value, onChange, options }: { label:string; value:string; onChange:(v:string)=>void; options:{value:string;label:string}[] }) { return <div><label className="mb-2 block text-xs font-black uppercase text-[#725f4d]">{label}</label><select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 dark:bg-zinc-900 dark:text-white">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>; }
 function Info({ label, value }: { label:string; value:string }) { return <div><p className="text-xs font-black uppercase tracking-[0.15em] text-[#725f4d]">{label}</p><p className="mt-1 font-bold">{value}</p></div>; }
+

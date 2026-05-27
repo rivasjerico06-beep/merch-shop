@@ -124,8 +124,43 @@ export default function AssistancePage() {
 
   useEffect(() => {
     void loadPage();
+    // Refill the selected product when arriving from a product assistance button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProductFromLink]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let refreshTimer: number | undefined;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void loadPage();
+      }, 150);
+    };
+
+    const channel = supabase
+      .channel(`customer-assistance-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sales_leads",
+          filter: `customer_user_id=eq.${userId}`,
+        },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+    // Subscribe only after the signed-in customer is known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const activeRequest = useMemo(
     () =>
@@ -184,30 +219,68 @@ export default function AssistancePage() {
 
     setSubmitting(true);
 
-    const { data, error } = await supabase.rpc(
-      "request_product_assistance_callback",
-      {
-        input_full_name: form.full_name.trim(),
-        input_phone: form.phone.trim(),
-        input_email: form.email.trim() || null,
-        input_product_interest: form.product_interest.trim(),
-        input_preferred_callback_at: form.preferred_callback_at
-          ? new Date(form.preferred_callback_at).toISOString()
-          : null,
-        input_notes: form.notes.trim() || null,
-        input_callback_consent: form.callback_consent,
-        input_callback_notice_version: "callback-v1",
-      }
-    );
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
 
-    if (error) {
-      addToast(error.message || "Unable to submit assistance request.", "error");
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
       setSubmitting(false);
       return;
     }
 
-    const result = Array.isArray(data)
-      ? (data[0] as { assigned_to_agent: boolean } | undefined)
+    const response = await fetch("/api/assistance/request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        full_name: form.full_name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim() || null,
+        product_interest: form.product_interest.trim(),
+        preferred_callback_at: form.preferred_callback_at
+          ? new Date(form.preferred_callback_at).toISOString()
+          : null,
+        notes: form.notes.trim() || null,
+        callback_consent: form.callback_consent,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      data?: { assigned_to_agent: boolean }[];
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      const message = payload.message || "";
+
+      if (response.status === 429 || message.includes("RATE_LIMITED")) {
+        addToast(
+          "Too many callback requests. Please try again later or continue shopping online.",
+          "error"
+        );
+      } else if (message.includes("active assistance request already exists")) {
+        addToast(
+          "You already have an active assistance request for this phone number.",
+          "error"
+        );
+      } else if (message.includes("marked Do Not Call")) {
+        addToast(
+          "This phone number is marked Do Not Call. Contact support if you want this preference reviewed.",
+          "error"
+        );
+      } else {
+        addToast(message || "Unable to submit assistance request.", "error");
+      }
+
+      setSubmitting(false);
+      return;
+    }
+
+    const result = Array.isArray(payload.data)
+      ? payload.data[0]
       : undefined;
 
     addToast(
@@ -228,6 +301,7 @@ export default function AssistancePage() {
     setSubmitting(false);
   };
 
+// Replace only your current withdrawRequest function with this block.
   const withdrawRequest = async (
     request: AssistanceRequest,
     doNotCall: boolean
@@ -242,13 +316,38 @@ export default function AssistancePage() {
 
     setActionId(request.id);
 
-    const { error } = await supabase.rpc("withdraw_my_assistance_callback", {
-      input_lead_id: request.id,
-      input_do_not_call: doNotCall,
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
+      setActionId(null);
+      return;
+    }
+
+    const response = await fetch("/api/assistance/withdraw", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        lead_id: request.id,
+        do_not_call: doNotCall,
+      }),
     });
 
-    if (error) {
-      addToast(error.message || "Unable to update your request.", "error");
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      if (response.status === 429 || payload.error === "RATE_LIMITED") {
+        addToast("Too many request updates. Please try again later.", "error");
+      } else {
+        addToast(payload.message || "Unable to update your request.", "error");
+      }
     } else {
       addToast(
         doNotCall
@@ -265,8 +364,8 @@ export default function AssistancePage() {
   if (loading) {
     return (
       <AppShell title="Request Assistance" toasts={toasts}>
-        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#093459]/12 bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
+        <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -275,18 +374,18 @@ export default function AssistancePage() {
   if (!userId) {
     return (
       <AppShell title="Request Assistance" toasts={toasts}>
-        <section className="mx-auto max-w-xl rounded-[2rem] border border-[#093459]/12 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
+        <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
             Customer Assistance
           </p>
           <h1 className="mt-4 text-4xl font-black">Request a Product Call</h1>
-          <p className="mt-4 text-[#093459]/60 dark:text-gray-400">
+          <p className="mt-4 text-[#725f4d] dark:text-gray-400">
             Log in first so your assistance request and any assisted order can
             be connected securely to your account.
           </p>
           <Link
             href="/login?redirect=/assistance"
-            className="mt-6 inline-block rounded-full bg-[#093459] px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#6fb0aa]"
+            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
           >
             Log In to Continue
           </Link>
@@ -297,15 +396,14 @@ export default function AssistancePage() {
 
   return (
     <AppShell title="Request Assistance" toasts={toasts}>
-      {/* ── Header ── */}
-      <section className="rounded-[2.5rem] border border-[#093459]/12 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
+      <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
           Product Assistance
         </p>
         <h1 className="mt-3 text-4xl font-black md:text-6xl">
           Request a Call
         </h1>
-        <p className="mt-3 max-w-3xl text-[#093459]/60 dark:text-gray-400">
+        <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
           Need guidance before ordering? Submit your request and an available
           approved agent may call you through HelloAirDial regarding the product
           you selected.
@@ -313,13 +411,12 @@ export default function AssistancePage() {
       </section>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-        {/* ── Form ── */}
         <form
           onSubmit={submitRequest}
-          className="rounded-[2rem] border border-[#093459]/12 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+          className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
         >
           <h2 className="text-2xl font-black">Callback Details</h2>
-          <p className="mt-1 text-sm text-[#093459]/60 dark:text-gray-400">
+          <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
             Only submit a number where you want to receive this requested call.
           </p>
 
@@ -388,7 +485,7 @@ export default function AssistancePage() {
           </div>
 
           <div className="mt-4">
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#093459]/50 dark:text-gray-400">
+            <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
               Notes (Optional)
             </label>
             <textarea
@@ -402,12 +499,11 @@ export default function AssistancePage() {
                 }))
               }
               placeholder="Question about quantity, product details, checkout assistance..."
-              className="w-full rounded-2xl border border-[#093459]/20 bg-white px-4 py-3 text-sm outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+              className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
             />
           </div>
 
-          {/* ── Consent checkbox ── */}
-          <label className="mt-5 flex gap-3 rounded-2xl border border-[#58948f]/30 bg-[#58948f]/08 p-4 text-sm text-[#093459] dark:border-[#58948f]/25 dark:bg-[#58948f]/10 dark:text-[#d9efed]">
+          <label className="mt-5 flex gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-100">
             <input
               type="checkbox"
               checked={form.callback_consent}
@@ -417,7 +513,7 @@ export default function AssistancePage() {
                   callback_consent: event.target.checked,
                 }))
               }
-              className="mt-1 h-4 w-4 accent-[#58948f]"
+              className="mt-1 h-4 w-4 accent-violet-600"
             />
             <span>
               I request a call about my selected product and permit an assigned
@@ -429,7 +525,7 @@ export default function AssistancePage() {
           <button
             type="submit"
             disabled={submitting || Boolean(activeRequest)}
-            className="mt-6 w-full rounded-2xl bg-[#093459] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#58948f] dark:text-white dark:hover:bg-[#6fb0aa]"
+            className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
           >
             {activeRequest
               ? "Active Request Already Exists"
@@ -439,16 +535,15 @@ export default function AssistancePage() {
           </button>
         </form>
 
-        {/* ── My Requests ── */}
-        <aside className="h-fit rounded-[2rem] border border-[#093459]/12 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <aside className="h-fit rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <h2 className="text-2xl font-black">My Requests</h2>
-          <p className="mt-1 text-sm text-[#093459]/60 dark:text-gray-400">
+          <p className="mt-1 text-sm text-[#725f4d] dark:text-gray-400">
             You control whether agents may continue calling about your request.
           </p>
 
           <div className="mt-5 space-y-4">
             {requests.length === 0 ? (
-              <p className="rounded-3xl bg-[#093459]/05 p-6 text-center text-sm text-[#093459]/50 dark:bg-white/[0.05] dark:text-gray-400">
+              <p className="rounded-3xl bg-[#f8efe4] p-6 text-center text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
                 You have no assistance requests yet.
               </p>
             ) : (
@@ -464,14 +559,14 @@ export default function AssistancePage() {
                 return (
                   <div
                     key={request.id}
-                    className="rounded-3xl border border-[#093459]/10 p-4 dark:border-white/10"
+                    className="rounded-3xl border border-[#eadfd1] p-4 dark:border-white/10"
                   >
                     <div className="flex justify-between gap-3">
                       <div>
                         <p className="font-black">
                           {request.product_interest || "Product Assistance"}
                         </p>
-                        <p className="mt-1 text-xs text-[#093459]/50 dark:text-gray-400">
+                        <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
                           Requested {new Date(request.created_at).toLocaleString()}
                         </p>
                       </div>
@@ -479,7 +574,7 @@ export default function AssistancePage() {
                     </div>
 
                     {request.preferred_callback_at && (
-                      <p className="mt-3 text-sm text-[#093459]/60 dark:text-gray-300">
+                      <p className="mt-3 text-sm text-[#725f4d] dark:text-gray-300">
                         Preferred call time:{" "}
                         {new Date(request.preferred_callback_at).toLocaleString()}
                       </p>
@@ -491,7 +586,7 @@ export default function AssistancePage() {
                           type="button"
                           disabled={actionId === request.id}
                           onClick={() => withdrawRequest(request, false)}
-                          className="rounded-full border border-[#093459]/20 px-4 py-2 text-xs font-black transition hover:bg-[#093459] hover:text-white dark:border-white/10 dark:hover:bg-[#58948f]"
+                          className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-black transition hover:bg-zinc-950 hover:text-white dark:border-white/10"
                         >
                           Cancel Request
                         </button>
@@ -531,7 +626,7 @@ function StatusBadge({ status }: { status: string }) {
       : status === "do_not_contact"
         ? "bg-red-600"
         : status === "assigned" || status === "interested" || status === "follow_up"
-          ? "bg-[#58948f]"
+          ? "bg-violet-600"
           : status === "not_interested"
             ? "bg-zinc-500"
             : "bg-amber-500 text-black";
@@ -560,7 +655,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#093459]/50 dark:text-gray-400">
+      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
         {label}
       </label>
       <input
@@ -568,7 +663,7 @@ function Field({
         value={value}
         maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-[#093459]/20 bg-white px-4 py-3 text-sm outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
       />
     </div>
   );

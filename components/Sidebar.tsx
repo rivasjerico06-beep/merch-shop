@@ -96,14 +96,18 @@ export default function Sidebar({
   const mutedText = isDark ? "text-[#58948f]" : "text-[#093459]/50";
 
   const getPathOnly = (href: string) => href.split("?")[0];
+const getIsActive = (href: string) => {
+  const linkPath = getPathOnly(href);
 
-  const getIsActive = (href: string) => {
-    const linkPath = getPathOnly(href);
-    return linkPath === "/"
-      ? pathname === "/"
-      : pathname === linkPath || pathname.startsWith(`${linkPath}/`);
-  };
+ if (linkPath === "/") {
+    return pathname === "/";
+  }
+ if (linkPath === "/agent" || linkPath === "/admin") {
+    return pathname === linkPath;
+  }
 
+   return pathname === linkPath || pathname.startsWith(`${linkPath}/`);
+};
   const getLinkClass = (href: string) => {
     const isActive = getIsActive(href);
 

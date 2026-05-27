@@ -45,7 +45,8 @@ export default function AdminOptionsPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
+
     setToasts((prev) => [...prev, { id, message, type }]);
 
     setTimeout(() => {
@@ -169,37 +170,37 @@ export default function AdminOptionsPage() {
       return;
     }
 
-   setSaving(true);
+    setSaving(true);
 
-if (optionForm.is_default) {
-  await supabase
-    .from("product_options")
-    .update({ is_default: false })
-    .eq("product_id", selectedProductId);
-}
+    if (optionForm.is_default) {
+      await supabase
+        .from("product_options")
+        .update({ is_default: false })
+        .eq("product_id", selectedProductId);
+    }
 
-const rawPayload = {
-  product_id: selectedProductId,
-  label: optionForm.label,
-  quantity: optionForm.quantity,
-  price_delta: optionForm.price_delta,
-  is_default: optionForm.is_default,
-  sort_order: optionForm.sort_order,
-};
+    const rawPayload = {
+      product_id: selectedProductId,
+      label: optionForm.label,
+      quantity: optionForm.quantity,
+      price_delta: optionForm.price_delta,
+      is_default: optionForm.is_default,
+      sort_order: optionForm.sort_order,
+    };
 
-let payload;
+    let payload;
 
-try {
-  payload = productOptionSchema.parse(rawPayload);
-} catch (error) {
-  addToast(getValidationMessage(error), "error");
-  setSaving(false);
-  return;
-}
+    try {
+      payload = productOptionSchema.parse(rawPayload);
+    } catch (error) {
+      addToast(getValidationMessage(error), "error");
+      setSaving(false);
+      return;
+    }
 
-const result = editingOptionId
-  ? await supabase.from("product_options").update(payload).eq("id", editingOptionId)
-  : await supabase.from("product_options").insert(payload);
+    const result = editingOptionId
+      ? await supabase.from("product_options").update(payload).eq("id", editingOptionId)
+      : await supabase.from("product_options").insert(payload);
 
     if (result.error) {
       addToast("Failed to save option", "error");
@@ -236,7 +237,7 @@ const result = editingOptionId
     return (
       <AppShell title="Admin Options" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -246,7 +247,7 @@ const result = editingOptionId
     return (
       <AppShell title="Admin Options" toasts={toasts}>
         <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
             Login required
           </p>
           <h1 className="mt-4 text-4xl font-black">Admin Login</h1>
@@ -256,7 +257,7 @@ const result = editingOptionId
 
           <Link
             href="/login?redirect=/admin/options"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] dark:hover:bg-[#093459]"
           >
             Login as Admin
           </Link>
@@ -277,7 +278,7 @@ const result = editingOptionId
             This page is only for accounts with <b>role = admin</b>.
           </p>
 
-          <div className="mt-6 rounded-2xl bg-[#f8efe4] p-4 text-left text-sm dark:bg-white/[0.05]">
+          <div className="mt-6 rounded-2xl bg-[#58948f]/10 p-4 text-left text-sm dark:bg-white/[0.05]">
             <p>
               <b>Email:</b> {userEmail || "Not logged in"}
             </p>
@@ -288,7 +289,7 @@ const result = editingOptionId
 
           <Link
             href="/"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] dark:hover:bg-[#093459]"
           >
             Back to Shop
           </Link>
@@ -302,7 +303,7 @@ const result = editingOptionId
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Bundle Options
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -317,14 +318,14 @@ const result = editingOptionId
           <div className="flex flex-wrap gap-3">
             <button
               onClick={fetchPage}
-              className="rounded-full border border-[#cdbba7] bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
+              className="rounded-full border border-[#58948f] bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-[#58948f] dark:hover:text-white"
             >
               Refresh
             </button>
 
             <Link
               href="/admin/products"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+              className="rounded-full bg-[#58948f] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] dark:hover:bg-[#093459]"
             >
               Products
             </Link>
@@ -346,7 +347,7 @@ const result = editingOptionId
               setEditingOptionId(null);
               setOptionForm(emptyOptionForm);
             }}
-            className="mt-5 w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className="mt-5 w-full rounded-2xl border border-[#58948f]/40 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
           >
             {products.map((product) => (
               <option
@@ -360,8 +361,8 @@ const result = editingOptionId
           </select>
 
           {selectedProduct && (
-            <div className="mt-5 rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d] dark:text-gray-400">
+            <div className="mt-5 rounded-3xl bg-[#58948f]/10 p-5 dark:bg-white/[0.05]">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f] dark:text-[#58948f]/90">
                 Base Price
               </p>
               <p className="mt-2 text-2xl font-black">
@@ -434,7 +435,7 @@ const result = editingOptionId
                 />
               </div>
 
-              <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-[#f8efe4] p-4 dark:bg-white/[0.05]">
+              <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-[#58948f]/10 p-4 dark:bg-white/[0.05]">
                 <input
                   type="checkbox"
                   checked={optionForm.is_default}
@@ -444,7 +445,7 @@ const result = editingOptionId
                       is_default: e.target.checked,
                     }))
                   }
-                  className="h-5 w-5"
+                  className="h-5 w-5 accent-[#58948f]"
                 />
                 <span className="text-sm font-black uppercase tracking-[0.15em]">
                   Set as default option
@@ -453,7 +454,7 @@ const result = editingOptionId
 
               <button
                 disabled={saving}
-                className="w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+                className="w-full rounded-2xl bg-[#58948f] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] disabled:opacity-60 dark:hover:bg-[#093459]"
               >
                 {saving
                   ? "Saving..."
@@ -466,7 +467,7 @@ const result = editingOptionId
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="w-full rounded-2xl border border-[#cdbba7] py-4 text-sm font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+                  className="w-full rounded-2xl border border-[#58948f] py-4 text-sm font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
                 >
                   Cancel Edit
                 </button>
@@ -482,21 +483,21 @@ const result = editingOptionId
 
             <div className="mt-5 space-y-3">
               {selectedOptions.length === 0 ? (
-                <p className="rounded-3xl bg-[#f8efe4] p-5 text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
+                <p className="rounded-3xl bg-[#58948f]/10 p-5 text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-400">
                   No options yet.
                 </p>
               ) : (
                 selectedOptions.map((option) => (
                   <div
                     key={option.id}
-                    className="rounded-3xl border border-[#ded0bf] bg-[#f8efe4] p-5 dark:border-white/10 dark:bg-white/[0.05]"
+                    className="rounded-3xl border border-[#ded0bf] bg-[#58948f]/5 p-5 dark:border-white/10 dark:bg-white/[0.05]"
                   >
                     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-lg font-black">{option.label}</p>
                           {option.is_default && (
-                            <span className="rounded-full bg-violet-600 px-3 py-1 text-[10px] font-black uppercase text-white">
+                            <span className="rounded-full bg-[#58948f] px-3 py-1 text-[10px] font-black uppercase text-white">
                               default
                             </span>
                           )}
@@ -514,7 +515,7 @@ const result = editingOptionId
                       <div className="flex gap-2">
                         <button
                           onClick={() => editOption(option)}
-                          className="rounded-full border border-[#cdbba7] bg-white px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
+                          className="rounded-full border border-[#58948f]/40 bg-white px-4 py-2 text-xs font-bold transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
                         >
                           Edit
                         </button>
@@ -564,7 +565,7 @@ function TextInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-600 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
+        className="w-full rounded-2xl border border-[#58948f]/40 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
       />
     </div>
   );

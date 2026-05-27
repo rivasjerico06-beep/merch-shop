@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
+import { faSun, faMoon, faShoppingCart, faUserCheck, faUserTie, faUserShield, faUser, faSignInAlt} from "@fortawesome/free-solid-svg-icons";
 
 type HeaderProps = {
   title?: string;
@@ -35,9 +35,9 @@ export default function Header({
   isAgentMode = false,
   isApprovedAgent = false,
 }: HeaderProps) {
-  const headerBg = isDark
+ const headerBg = isDark
     ? "border-white/10 bg-black/70 text-white"
-    : "border-[#ded0bf] bg-[#fffaf4]/90 text-[#18120d] shadow-[0_1px_0_rgba(77,55,36,0.08)]";
+    : "border-slate-100 bg-white/90 text-[#18120d] shadow-[0_1px_0_rgba(0,0,0,0.05)]";;
   const inputClass = isDark
     ? "border-white/10 bg-zinc-900 text-white placeholder:text-gray-500 focus:border-violet-500"
     : "border-[#cdbba7] bg-white text-[#18120d] placeholder:text-[#8c7a67] shadow-inner focus:border-violet-600 focus:ring-4 focus:ring-violet-200/70";
@@ -76,53 +76,91 @@ export default function Header({
           </div>
         )}
 
-        <div className="flex shrink-0 items-center gap-2">
-      <button
-          onClick={onToggleTheme}
-          className={`rounded-full border p-2 transition ${outlineButton}`}
-          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
->
-          <FontAwesomeIcon
-          icon={isDark ? faSun : faMoon}
-          className={isDark ? "text-yellow-300" : "text-indigo-500"}
-          size="sm"
-           />
-       </button>
+        <div className="flex items-center gap-4">
+  {/* Theme Toggle Button */}
+  <button
+    onClick={onToggleTheme}
+    className="p-1 transition hover:opacity-80"
+    aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+  >
+    <FontAwesomeIcon
+      icon={isDark ? faSun : faMoon}
+      className={isDark ? "text-yellow-300" : "text-[#093459]"}
+      size="sm"
+    />
+  </button>
 
+  {/* Cart Button */}
+  <Link 
+    href="/cart" 
+    className="relative p-1 transition hover:opacity-80"
+    aria-label="View Cart"
+  >
+    <FontAwesomeIcon icon={faShoppingCart} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+    {cartCount > 0 && (
+      <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#58948f] px-1 text-[9px] font-black text-white">
+        {cartCount}
+      </span>
+    )}
+  </Link>
 
-          <Link href="/cart" className={`relative rounded-full border px-4 py-2 text-xs font-bold transition ${outlineButton}`}>
-            Cart
-            {cartCount > 0 && <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600 px-1 text-[10px] font-black text-white">{cartCount}</span>}
-          </Link>
+  {/* Customer Mode Action */}
+  {isAgentMode && (
+    <button 
+      onClick={switchToCustomerMode} 
+      className="hidden p-1 transition hover:opacity-80 md:inline-block"
+      aria-label="Switch to Customer Mode"
+      title="Customer Mode"
+    >
+      <FontAwesomeIcon icon={faUserCheck} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+    </button>
+  )}
 
-          {isAgentMode && (
-            <button onClick={switchToCustomerMode} className={`hidden rounded-full border px-4 py-2 text-xs font-bold transition md:inline-block ${outlineButton}`}>
-              Customer Mode
-            </button>
-          )}
+  {/* Agent Portal Navigation */}
+  {!isAgentMode && isApprovedAgent && !isAdmin && (
+    <Link 
+      href="/agent-login" 
+      className="hidden p-1 transition hover:opacity-80 md:inline-block"
+      aria-label="Go to Agent Portal"
+      title="Agent Portal"
+    >
+      <FontAwesomeIcon icon={faUserTie} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+    </Link>
+  )}
 
-          {!isAgentMode && isApprovedAgent && !isAdmin && (
-            <Link href="/agent-login" className={`hidden rounded-full border px-4 py-2 text-xs font-bold transition md:inline-block ${outlineButton}`}>
-              Agent Portal
-            </Link>
-          )}
+  {/* Admin Control Dashboard */}
+  {isAdmin && (
+    <Link 
+      href="/admin" 
+      className="hidden p-1 transition hover:opacity-80 md:inline-block"
+      aria-label="Go to Admin Dashboard"
+      title="Admin"
+    >
+      <FontAwesomeIcon icon={faUserShield} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+    </Link>
+  )}
 
-          {isAdmin && (
-            <Link href="/admin" className={`hidden rounded-full border px-4 py-2 text-xs font-bold transition md:inline-block ${outlineButton}`}>
-              Admin
-            </Link>
-          )}
-
-          {userEmail ? (
-            <Link href="/account" className={`rounded-full px-4 py-2 text-xs font-black transition ${primaryButton}`} title={displayName}>
-              Account
-            </Link>
-          ) : (
-            <Link href="/login" className={`rounded-full px-4 py-2 text-xs font-black transition ${primaryButton}`}>
-              Login
-            </Link>
-          )}
-        </div>
+  {/* Profile Account / Authentication Entry */}
+  {userEmail ? (
+    <Link 
+      href="/account" 
+      className="p-1 transition hover:opacity-80" 
+      title={displayName}
+      aria-label="View Account"
+    >
+      <FontAwesomeIcon icon={faUser} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+    </Link>
+  ) : (
+    <Link 
+      href="/login" 
+      className="p-1 transition hover:opacity-80"
+      aria-label="Login"
+      title="Login"
+    >
+      <FontAwesomeIcon icon={faSignInAlt} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+    </Link>
+  )}
+</div>
       </div>
 
       {onSearchChange && (

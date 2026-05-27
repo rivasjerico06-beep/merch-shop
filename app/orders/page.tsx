@@ -15,6 +15,8 @@ import {
   getTrackingStepIndex,
   orderTrackingSteps,
 } from "@/lib/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBoxOpen } from "@fortawesome/free-solid-svg-icons";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -25,9 +27,7 @@ export default function OrdersPage() {
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
     const id = crypto.randomUUID();
-
     setToasts((prev) => [...prev, { id, message, type }]);
-
     setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 3000);
@@ -103,16 +103,14 @@ export default function OrdersPage() {
   }, [orders]);
 
   const pendingCount = orders.filter((order) => order.status === "pending").length;
-  const deliveredCount = orders.filter(
-    (order) => order.status === "delivered"
-  ).length;
+  const deliveredCount = orders.filter((order) => order.status === "delivered").length;
 
   return (
     <AppShell title="Orders" toasts={toasts}>
-      <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+      <section className="rounded-[2.5rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Order Tracking
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -126,7 +124,7 @@ export default function OrdersPage() {
 
           <button
             onClick={() => fetchOrders()}
-            className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+            className="rounded-full border border-[#58948f]/40 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-[#093459] hover:text-white dark:border-white/10 dark:hover:bg-[#58948f] dark:hover:text-white"
           >
             Refresh
           </button>
@@ -157,7 +155,7 @@ export default function OrdersPage() {
       )}
 
       {userId && (
-        <section className="mt-6 rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <section className="mt-6 rounded-[2rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div>
               <h2 className="text-2xl font-black">Order History</h2>
@@ -168,7 +166,7 @@ export default function OrdersPage() {
 
             <Link
               href="/products"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+              className="rounded-full bg-[#093459] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
             >
               Shop More
             </Link>
@@ -176,13 +174,13 @@ export default function OrdersPage() {
 
           <div className="mt-6 space-y-4">
             {loading ? (
-              <div className="flex h-64 items-center justify-center rounded-[2rem] border border-black/10 dark:border-white/10">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+              <div className="flex h-64 items-center justify-center rounded-[2rem] border border-[#58948f]/40 dark:border-white/10">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
               </div>
             ) : orders.length === 0 ? (
-              <div className="rounded-[2rem] border border-black/10 p-10 text-center dark:border-white/10">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-violet-600 text-3xl text-white">
-                  📦
+              <div className="rounded-[2rem] border border-[#58948f]/40 p-10 text-center dark:border-white/10">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[#093459] dark:bg-[#58948f]">
+                  <FontAwesomeIcon icon={faBoxOpen} className="text-3xl text-white" />
                 </div>
                 <h3 className="text-2xl font-black">No orders yet</h3>
                 <p className="mt-2 text-zinc-600 dark:text-gray-400">
@@ -204,7 +202,7 @@ export default function OrdersPage() {
                 return (
                   <div
                     key={order.id}
-                    className="rounded-[2rem] border border-black/10 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="rounded-[2rem] border border-[#58948f]/30 bg-[#58948f]/5 p-5 dark:border-[#093459]/60 dark:bg-[#093459]/20"
                   >
                     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
                       <div>
@@ -232,7 +230,7 @@ export default function OrdersPage() {
                         </p>
 
                         {order.agent_referral_code && (
-                          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-200">
+                          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#58948f]/30 bg-[#58948f]/10 px-3 py-2 text-xs font-bold text-[#093459] dark:border-[#58948f]/20 dark:bg-[#093459]/30 dark:text-[#58948f]">
                             Assisted by {order.agent_name || "Agent"} · {order.agent_referral_code}
                           </div>
                         )}
@@ -243,9 +241,7 @@ export default function OrdersPage() {
                           Total
                         </p>
                         <p className="mt-1 text-xl font-black">
-                          {formatPrice(
-                            Number(order.total_amount || computedTotal || 0)
-                          )}
+                          {formatPrice(Number(order.total_amount || computedTotal || 0))}
                         </p>
                       </div>
                     </div>
@@ -267,14 +263,14 @@ export default function OrdersPage() {
                                 key={step}
                                 className={`rounded-2xl border p-3 ${
                                   isDone
-                                    ? "border-violet-500 bg-violet-600 text-white"
-                                    : "border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.03]"
+                                    ? "border-[#58948f] bg-[#58948f] text-white dark:border-[#093459] dark:bg-[#093459]"
+                                    : "border-[#58948f]/20 bg-white dark:border-white/10 dark:bg-white/[0.03]"
                                 }`}
                               >
                                 <div
                                   className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
                                     isDone
-                                      ? "bg-white text-violet-700"
+                                      ? "bg-white text-[#58948f] dark:text-[#093459]"
                                       : "bg-black/10 dark:bg-white/10"
                                   }`}
                                 >
@@ -294,62 +290,41 @@ export default function OrdersPage() {
                       onClick={() =>
                         setExpandedOrderId(isExpanded ? null : order.id)
                       }
-                      className="mt-5 rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+                      className="mt-5 rounded-full border border-[#58948f]/40 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-[#093459] hover:text-white dark:border-white/10 dark:hover:bg-[#58948f] dark:hover:text-white"
                     >
                       {isExpanded ? "Hide Details" : "View Details"}
                     </button>
 
                     {isExpanded && (
                       <div className="mt-5 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-                        <div className="rounded-3xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="rounded-3xl border border-[#58948f]/30 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
                           <h4 className="text-lg font-black">
                             Delivery Details
                           </h4>
 
                           <div className="mt-4 space-y-3 text-sm">
-                            <InfoRow
-                              label="Customer"
-                              value={order.full_name || "Customer"}
-                            />
-                            <InfoRow
-                              label="Phone"
-                              value={order.phone || "N/A"}
-                            />
+                            <InfoRow label="Customer" value={order.full_name || "Customer"} />
+                            <InfoRow label="Phone" value={order.phone || "N/A"} />
                             <InfoRow
                               label="Address"
-                              value={[
-                                order.address,
-                                order.city,
-                                order.province,
-                                order.postal_code,
-                              ]
-                                .filter(Boolean)
-                                .join(", ") || "N/A"}
+                              value={
+                                [order.address, order.city, order.province, order.postal_code]
+                                  .filter(Boolean)
+                                  .join(", ") || "N/A"
+                              }
                             />
-                            <InfoRow
-                              label="Payment"
-                              value={order.payment_method || "COD"}
-                            />
+                            <InfoRow label="Payment" value={order.payment_method || "COD"} />
                             {order.agent_referral_code && (
                               <>
-                                <InfoRow
-                                  label="Assisted By"
-                                  value={order.agent_name || "Agent"}
-                                />
-                                <InfoRow
-                                  label="Referral Code"
-                                  value={order.agent_referral_code}
-                                />
+                                <InfoRow label="Assisted By" value={order.agent_name || "Agent"} />
+                                <InfoRow label="Referral Code" value={order.agent_referral_code} />
                               </>
                             )}
-                            <InfoRow
-                              label="Date"
-                              value={formatOrderDateTime(order.created_at)}
-                            />
+                            <InfoRow label="Date" value={formatOrderDateTime(order.created_at)} />
                           </div>
                         </div>
 
-                        <div className="rounded-3xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="rounded-3xl border border-[#58948f]/30 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
                           <h4 className="text-lg font-black">Items Ordered</h4>
 
                           <div className="mt-4 space-y-3">
@@ -364,7 +339,7 @@ export default function OrdersPage() {
                                 return (
                                   <div
                                     key={item.id}
-                                    className="flex flex-col justify-between gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10 md:flex-row md:items-center"
+                                    className="flex flex-col justify-between gap-3 rounded-2xl border border-[#58948f]/20 p-4 dark:border-white/10 md:flex-row md:items-center"
                                   >
                                     <div>
                                       <p className="font-black">
@@ -387,8 +362,7 @@ export default function OrdersPage() {
                                       <p className="font-black">
                                         {formatItemPrice(
                                           item,
-                                          Number(item.price || 0) *
-                                            Number(item.quantity || 1)
+                                          Number(item.price || 0) * Number(item.quantity || 1)
                                         )}
                                       </p>
                                     </div>
@@ -413,8 +387,8 @@ export default function OrdersPage() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-gray-400">
+    <div className="rounded-[2rem] border border-[#58948f]/40 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f]">
         {label}
       </p>
       <p className="mt-3 text-3xl font-black">{value}</p>
@@ -425,7 +399,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-black uppercase tracking-[0.15em] text-zinc-500 dark:text-gray-400">
+      <p className="text-xs font-black uppercase tracking-[0.15em] text-[#58948f]">
         {label}
       </p>
       <p className="mt-1 font-bold">{value}</p>

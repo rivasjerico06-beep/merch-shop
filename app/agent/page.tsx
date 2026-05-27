@@ -239,36 +239,52 @@ export default function AgentPage() {
 
     setSubmitting(true);
 
-    const result = agentProfile
-      ? await supabase
-          .from("agent_profiles")
-          .update({
-            display_name: displayName,
-            phone,
-            notes,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", userId)
-      : await supabase.from("agent_profiles").insert({
-          user_id: userId,
-          display_name: displayName,
-          phone,
-          notes,
-          status: "pending",
-          updated_at: new Date().toISOString(),
-        });
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
 
-    if (result.error) {
-      addToast("Unable to submit agent application.", "error");
-      console.error("Agent application error:", result.error);
-    } else {
-      addToast(
-        agentProfile ? "Application updated." : "Agent application submitted.",
-        "success"
-      );
-      await loadAgentPage();
+    if (!accessToken) {
+      addToast("Your session expired. Please log in again.", "error");
+      setSubmitting(false);
+      return;
     }
 
+    const response = await fetch("/api/agent/application", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        display_name: displayName,
+        phone,
+        notes,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      if (response.status === 429 || payload.error === "RATE_LIMITED") {
+        addToast(
+          "Too many application submissions. Please try again later.",
+          "error"
+        );
+      } else {
+        addToast(payload.message || "Unable to submit agent application.", "error");
+      }
+
+      setSubmitting(false);
+      return;
+    }
+
+    addToast(
+      payload.message || (agentProfile ? "Application updated." : "Application submitted."),
+      "success"
+    );
+    await loadAgentPage();
     setSubmitting(false);
   };
 

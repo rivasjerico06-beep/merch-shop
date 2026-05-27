@@ -234,7 +234,7 @@ export default function CartPage() {
 
   return (
     <AppShell title="Cart" toasts={toasts}>
-      <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
+      <section className="rounded-[2.5rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-bg-[#58948f] dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.3em] text-gray-400">
@@ -246,8 +246,8 @@ export default function CartPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d] dark:text-gray-400">
+          <div className="rounded-3xl bg-[#58948f] p-5 dark:bg-white/[0.05]">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b5e8e4] dark:text-gray-400">
               Cart Total
             </p>
             <p className="mt-1 text-3xl font-black">
@@ -256,7 +256,7 @@ export default function CartPage() {
                 currency: "USD",
               }).format(cartTotal)}
             </p>
-            <p className="text-sm text-[#725f4d] dark:text-gray-400">
+            <p className="text-sm text-[#b5e8e4] dark:text-gray-400">
               {cartCount} bundle(s)
             </p>
           </div>
@@ -289,16 +289,16 @@ export default function CartPage() {
         <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-4">
             {loading ? (
-              <div className="flex h-64 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="flex h-64 items-center justify-center rounded-[2rem] border border-[#58948f] bg-white dark:border-[#58948f] dark:bg-white/[0.04]">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
               </div>
             ) : cartItems.length === 0 ? (
               <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-10 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gray-200 dark:bg-zinc-700">
-                  <FontAwesomeIcon
-                    icon={faCartShopping}
-                    className="text-3xl text-gray-500 dark:text-gray-400"
-                  />
+               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[#58948f]/10 dark:bg-[#58948f]/20">
+                 <FontAwesomeIcon
+                icon={faCartShopping}
+               className="text-3xl text-[#58948f]"
+                   />
                 </div>
                 <h2 className="text-2xl font-black">Your cart is empty</h2>
                 <p className="mt-2 text-[#725f4d] dark:text-gray-400">
@@ -306,7 +306,7 @@ export default function CartPage() {
                 </p>
                 <Link
                   href="/products"
-                  className="mt-6 inline-block rounded-full bg-[#093459] px-6 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#58948f] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
+                  className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-xs font-black uppercase tracking-[0.2em] text-black transition hover:bg-[#093459] dark:bg-[#58948f] dark:text-white dark:hover:bg-[#093459]"
                 >
                   Browse Products
                 </Link>
@@ -320,7 +320,7 @@ export default function CartPage() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-[2rem] border border-[#ded0bf] bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+                    className="rounded-[2rem] border border-[#58948f] bg-white p-5 shadow-sm dark:border-[#58948f] dark:bg-white/[0.04]"
                   >
                     <div className="grid gap-5 md:grid-cols-[auto_1fr_auto] md:items-center">
                       {hasValidImageUrl(product?.image_url) ? (
@@ -371,12 +371,12 @@ export default function CartPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 md:justify-end">
-                        <div className="flex items-center rounded-2xl border border-[#ded0bf] p-2 dark:border-white/10">
+                        <div className="flex items-center rounded-2xl border border-[#58948f] p-2 dark:border-white/10">
                           <button
                             onClick={() =>
                               updateCartQuantity(item.id, item.quantity - 1)
                             }
-                            className="h-9 w-9 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-black"
+                            className="h-9 w-9 rounded-xl bg-[#58948f] text-white dark:bg-[#58948f] dark:text-black"
                           >
                             -
                           </button>
@@ -387,14 +387,14 @@ export default function CartPage() {
                             onClick={() =>
                               updateCartQuantity(item.id, item.quantity + 1)
                             }
-                            className="h-9 w-9 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-black"
+                            className="h-9 w-9 rounded-xl bg-[#58948f] text-white dark:bg-[#58948f] dark:text-black"
                           >
                             +
                           </button>
                         </div>
 
                         <div className="min-w-28 text-left md:text-right">
-                          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#725f4d] dark:text-gray-400">
+                          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f] dark:text-[#58948f]">
                             Subtotal
                           </p>
                           <p className="font-black">{formatCartPrice(item, subtotal)}</p>
@@ -414,7 +414,7 @@ export default function CartPage() {
             )}
           </div>
 
-          <aside className="h-fit rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <aside className="h-fit rounded-[2rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-[#58948f] dark:bg-white/[0.04]">
             <h2 className="text-2xl font-black">Order Summary</h2>
 
             <div className="mt-5 space-y-3">
@@ -462,7 +462,7 @@ export default function CartPage() {
 
             <Link
               href="/products"
-              className="mt-3 block w-full rounded-2xl border border-[#ded0bf] py-4 text-center text-sm font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+              className="mt-3 block w-full rounded-2xl border border-[#58948f] py-4 text-center text-sm font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-[#58948f] dark:hover:text-white"
             >
               Continue Shopping
             </Link>

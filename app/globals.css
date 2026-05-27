@@ -2,22 +2,21 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── Tokens ───────────────────────────────────────────── */
 :root {
-  /* Light mode — white/light base, navy + teal accents */
-  --background:        #f0f7f6;          /* very light teal-tinted white */
-  --background-soft:   #e4f0ef;          /* slightly deeper tint */
-  --foreground:        #093459;          /* navy — primary text */
-  --foreground-dim:    #1a4d6e;          /* slightly lighter navy */
-  --foreground-muted:  rgba(9,52,89,.5); /* dimmed navy */
+  /* Light mode — clean white base, navy + teal accents */
+  --background:       #ffffff;          /* Changed to pure white */
+  --background-soft:  #f8fafc;          /* Changed from beige-teal to clean, light slate/gray */
+  --foreground:        #093459;          
+  --foreground-dim:    #1a4d6e;          
+  --foreground-muted:  rgba(9,52,89,.5); 
 
-  --accent:            #58948f;          /* teal */
-  --accent-light:      #6fb0aa;          /* lighter teal */
+  --accent:            #58948f;          
+  --accent-light:      #6fb0aa;          
   --accent-dim:        rgba(88,148,143,.15);
   --accent-border:     rgba(88,148,143,.35);
 
   --surface:           #ffffff;
-  --surface-soft:      #eef6f5;
+  --surface-soft:      #f1f5f9;          /* Changed to a clean, soft gray */
   --border:            rgba(9,52,89,.12);
   --border-strong:     rgba(9,52,89,.22);
 }
@@ -47,14 +46,11 @@ html {
 }
 
 body {
-  min-height: 100%;
-  background:
-    radial-gradient(circle at 10% 0%, rgba(88,148,143,0.12), transparent 30rem),
-    linear-gradient(135deg, var(--background) 0%, var(--surface) 50%, var(--background-soft) 100%);
+  min-height: 100% !important;
+  background: #ffffff !important; /* Forces pure white globally */
   color: var(--foreground);
   transition: background 0.3s, color 0.3s;
 }
-
 .dark body {
   background:
     radial-gradient(circle at 10% 0%, rgba(9,52,89,0.55), transparent 30rem),
@@ -119,4 +115,10 @@ textarea {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-light);
+}
+
+/* Force any default layout container backgrounds to use your updated variable */
+main, 
+body > div {
+  background-color: var(--background) !important;
 }

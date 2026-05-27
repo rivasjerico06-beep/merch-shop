@@ -99,7 +99,7 @@ export default function AdminOrdersPage() {
       setOrders((data || []) as Order[]);
     }
 
-    setLoading(false);
+    loading && setLoading(false);
   };
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export default function AdminOrdersPage() {
     return (
       <AppShell title="Admin Orders" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -193,7 +193,7 @@ export default function AdminOrdersPage() {
     return (
       <AppShell title="Admin Orders" toasts={toasts}>
         <section className="mx-auto max-w-xl rounded-[2rem] border border-black/10 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
             Login required
           </p>
           <h1 className="mt-4 text-4xl font-black">Admin Login</h1>
@@ -203,7 +203,7 @@ export default function AdminOrdersPage() {
 
           <Link
             href="/login?redirect=/admin/orders"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459]"
           >
             Login as Admin
           </Link>
@@ -235,7 +235,7 @@ export default function AdminOrdersPage() {
 
           <Link
             href="/"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459]"
           >
             Back to Shop
           </Link>
@@ -255,7 +255,7 @@ export default function AdminOrdersPage() {
       <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Order Management
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -270,14 +270,14 @@ export default function AdminOrdersPage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={fetchOrdersPage}
-              className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+              className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
             >
               Refresh
             </button>
 
             <Link
               href="/admin/products"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+              className="rounded-full bg-[#58948f] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459]"
             >
               Products
             </Link>
@@ -301,7 +301,7 @@ export default function AdminOrdersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white md:max-w-xs"
+              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white md:max-w-xs"
             >
               <option className="bg-white text-zinc-950 dark:bg-zinc-900 dark:text-white" value="all">
                 All Statuses
@@ -323,7 +323,7 @@ export default function AdminOrdersPage() {
               setSearch("");
               setStatusFilter("all");
             }}
-            className="rounded-2xl border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+            className="rounded-2xl border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
           >
             Reset
           </button>
@@ -383,7 +383,7 @@ export default function AdminOrdersPage() {
                     {order.agent_referral_code ? (
                       <div>
                         <p className="font-bold">{order.agent_name || "Agent"}</p>
-                        <p className="text-xs text-violet-600">{order.agent_referral_code}</p>
+                        <p className="text-xs text-[#58948f]">{order.agent_referral_code}</p>
                       </div>
                     ) : (
                       <span className="text-zinc-400">Direct</span>
@@ -399,7 +399,7 @@ export default function AdminOrdersPage() {
                       onChange={(e) =>
                         updateOrderStatus(order.id, e.target.value)
                       }
-                      className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-bold text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                      className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-bold text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
                     >
                       {orderStatuses.map((status) => (
                         <option
@@ -415,7 +415,7 @@ export default function AdminOrdersPage() {
                   <td className="py-4">
                     <button
                       onClick={() => setSelectedOrder(order)}
-                      className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+                      className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
                     >
                       Details
                     </button>
@@ -486,12 +486,12 @@ function OrderDetailsModal({
       <div className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-black/10 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-zinc-950 md:p-8">
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-bold text-white dark:bg-white dark:text-black"
+          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-bold text-white dark:bg-white dark:text-black hover:bg-[#093459] dark:hover:bg-[#093459]"
         >
           ✕
         </button>
 
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
           Order Details
         </p>
 
@@ -518,7 +518,7 @@ function OrderDetailsModal({
               value={order.status || "pending"}
               disabled={savingOrderId === order.id}
               onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-              className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-bold text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+              className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-bold text-zinc-950 outline-none focus:border-[#58948f] dark:border-white/10 dark:bg-zinc-900 dark:text-white"
             >
               {orderStatuses.map((status) => (
                 <option
@@ -544,8 +544,8 @@ function OrderDetailsModal({
         </div>
 
         {order.agent_referral_code && (
-          <div className="mt-6 rounded-3xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-400/20 dark:bg-violet-400/10">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">
+          <div className="mt-6 rounded-3xl border border-[#58948f]/20 bg-[#58948f]/5 p-5 dark:border-[#58948f]/20 dark:bg-[#58948f]/10">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#58948f] dark:text-[#58948f]/90">
               Agent Attribution
             </p>
             <div className="mt-3 flex flex-col justify-between gap-3 md:flex-row md:items-center">
@@ -557,7 +557,7 @@ function OrderDetailsModal({
                   Referral Code: {order.agent_referral_code}
                 </p>
               </div>
-              <span className="rounded-full bg-violet-600 px-4 py-2 text-xs font-black uppercase text-white">
+              <span className="rounded-full bg-[#58948f] px-4 py-2 text-xs font-black uppercase text-white">
                 Agent Guided Sale
               </span>
             </div>
@@ -613,14 +613,14 @@ function OrderDetailsModal({
                         key={step}
                         className={`flex items-center gap-3 rounded-2xl border p-3 ${
                           isDone
-                            ? "border-violet-500 bg-violet-600 text-white"
+                            ? "border-[#58948f] bg-[#58948f] text-white"
                             : "border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.03]"
                         }`}
                       >
                         <span
                           className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
                             isDone
-                              ? "bg-white text-violet-700"
+                              ? "bg-white text-[#58948f]"
                               : "bg-black/10 dark:bg-white/10"
                           }`}
                         >
@@ -691,7 +691,7 @@ function OrderDetailsModal({
 
         <button
           onClick={onClose}
-          className="mt-6 w-full rounded-2xl border border-black/10 py-4 text-sm font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+          className="mt-6 w-full rounded-2xl border border-black/10 py-4 text-sm font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
         >
           Close Details
         </button>

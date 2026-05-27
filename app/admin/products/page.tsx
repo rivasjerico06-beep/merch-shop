@@ -33,7 +33,7 @@ export default function AdminProductsPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -98,7 +98,6 @@ export default function AdminProductsPage() {
   }, []);
 
   const uploadProductImage = async () => {
-    
     if (!productImageFile) return productForm.image_url.trim() || null;
 
     try {
@@ -239,7 +238,7 @@ export default function AdminProductsPage() {
     return (
       <AppShell title="Admin Products" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
         </div>
       </AppShell>
     );
@@ -249,7 +248,7 @@ export default function AdminProductsPage() {
     return (
       <AppShell title="Admin Products" toasts={toasts}>
         <section className="mx-auto max-w-xl rounded-[2rem] border border-black/10 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
             Login required
           </p>
           <h1 className="mt-4 text-4xl font-black">Admin Login</h1>
@@ -259,7 +258,7 @@ export default function AdminProductsPage() {
 
           <Link
             href="/login?redirect=/admin/products"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white hover:bg-[#093459] transition"
           >
             Login as Admin
           </Link>
@@ -291,7 +290,7 @@ export default function AdminProductsPage() {
 
           <Link
             href="/"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full bg-[#58948f] px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459]"
           >
             Back to Shop
           </Link>
@@ -305,7 +304,7 @@ export default function AdminProductsPage() {
       <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">
               Product Management
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -320,14 +319,14 @@ export default function AdminProductsPage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={fetchProductsPage}
-              className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+              className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-[#58948f] dark:hover:text-white"
             >
               Refresh
             </button>
 
             <Link
               href="/admin/orders"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+              className="rounded-full bg-[#58948f] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459]"
             >
               View Orders
             </Link>
@@ -350,7 +349,7 @@ export default function AdminProductsPage() {
             {editingProductId && (
               <button
                 onClick={resetProductForm}
-                className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+                className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-[#58948f] hover:text-white dark:border-white/10 dark:hover:bg-[#58948f]"
               >
                 Cancel
               </button>
@@ -451,7 +450,7 @@ export default function AdminProductsPage() {
                 onChange={(value) =>
                   setProductForm((prev) => ({ ...prev, colors: value }))
                 }
-                placeholder="Black, White, Violet"
+                placeholder="Black, White, Blue"
               />
             </div>
 
@@ -486,7 +485,7 @@ export default function AdminProductsPage() {
                 onChange={(e) =>
                   setProductImageFile(e.target.files?.[0] || null)
                 }
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-[#58948f] focus:ring-1 focus:ring-[#58948f] dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
               />
               <input
                 value={productForm.image_url}
@@ -496,7 +495,7 @@ export default function AdminProductsPage() {
                     image_url: e.target.value,
                   }))
                 }
-                className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-[#58948f] focus:ring-1 focus:ring-[#58948f] dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
                 placeholder="Or paste image URL"
               />
               {(productImageFile || productForm.image_url) && (
@@ -543,7 +542,7 @@ export default function AdminProductsPage() {
 
             <button
               disabled={productSaving}
-              className="w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
+              className="w-full rounded-2xl bg-[#58948f] py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#093459] disabled:opacity-60"
             >
               {productSaving
                 ? "Saving..."
@@ -583,7 +582,7 @@ export default function AdminProductsPage() {
                         className="h-20 w-20 rounded-2xl object-cover"
                       />
                     ) : (
-                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-600 text-2xl text-white">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#58948f] text-2xl text-white">
                         🛍️
                       </div>
                     )}
@@ -628,7 +627,7 @@ export default function AdminProductsPage() {
                       />
                       <button
                         onClick={() => deleteProduct(product.id)}
-                        className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700"
+                        className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition"
                       >
                         Delete
                       </button>
@@ -670,7 +669,7 @@ function TextInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
+        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-[#58948f] focus:ring-1 focus:ring-[#58948f] dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
       />
     </div>
   );
@@ -697,7 +696,7 @@ function TextArea({
         onChange={(e) => onChange(e.target.value)}
         rows={3}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
+        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-[#58948f] focus:ring-1 focus:ring-[#58948f] dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
       />
     </div>
   );
@@ -718,7 +717,7 @@ function CheckBox({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5"
+        className="h-5 w-5 accent-[#58948f]"
       />
       <span className="text-sm font-black uppercase tracking-[0.15em]">
         {label}
@@ -737,7 +736,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+      className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-[#58948f] hover:text-white"
     >
       {label}
     </button>
@@ -756,7 +755,7 @@ function Badge({
   return (
     <span
       className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
-        red ? "bg-red-600" : gray ? "bg-zinc-500" : "bg-violet-600"
+        red ? "bg-red-600" : gray ? "bg-zinc-500" : "bg-[#58948f]"
       }`}
     >
       {label}

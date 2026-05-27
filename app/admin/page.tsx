@@ -1,39 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { supabase } from "@/lib/supabase";
-import type { Product, ProductForm, Profile, ToastItem } from "@/lib/types";
-import {
-  buildProductPayload,
-  emptyProductForm,
-  formatPrice,
-  productToForm,
-} from "@/lib/utils";
-import {
-  getValidationMessage,
-  imageFileSchema,
-  productSchema,
-} from "@/lib/validation";
+import type { Order, OrderItem, Product, Profile, ToastItem } from "@/lib/types";
+import { getOrderItemProduct } from "@/lib/utils";
 
-export default function AdminProductsPage() {
+type DashboardOrder = Order & {
+  subtotal?: number | string | null;
+  discount_amount?: number | string | null;
+};
+
+const orderStatuses = [
+  "pending",
+  "confirmed",
+  "packed",
+  "shipped",
+  "delivered",
+  "cancelled",
+];
+
+const formatUSD = (value: number | string | null | undefined) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+
+export default function AdminDashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [userEmail, setUserEmail] = useState("");
-
-  const [productForm, setProductForm] =
-    useState<ProductForm>(emptyProductForm);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [productImageFile, setProductImageFile] = useState<File | null>(null);
-
+  const [orders, setOrders] = useState<DashboardOrder[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [productSaving, setProductSaving] = useState(false);
-
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -42,14 +48,15 @@ export default function AdminProductsPage() {
     }, 3000);
   };
 
-  const fetchProductsPage = async () => {
+  const fetchAdminData = async () => {
     setLoading(true);
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       setProfile(null);
       setUserEmail("");
       setLoading(false);
@@ -65,7 +72,7 @@ export default function AdminProductsPage() {
       .single();
 
     if (profileError || !profileData) {
-      addToast("Unable to load admin profile", "error");
+      addToast("Unable to load account role", "error");
       setProfile(null);
       setLoading(false);
       return;
@@ -78,182 +85,207 @@ export default function AdminProductsPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [ordersResult, orderItemsResult, productsResult] = await Promise.all([
+      supabase
+        .from("orders")
+        .select(
+          "id, user_id, status, total_amount, subtotal, discount_amount, payment_method, full_name, phone, address, city, province, postal_code, created_at"
+        )
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("order_items")
+        .select(
+          "id, order_id, product_id, size, quantity, price, created_at, products(name, category, price)"
+        )
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    ]);
 
-    if (error) {
-      addToast("Failed to load products", "error");
-      console.error(error);
+    if (ordersResult.error) {
+      addToast("Failed to load orders", "error");
+      console.error(ordersResult.error);
     } else {
-      setProducts((data || []) as Product[]);
+      setOrders((ordersResult.data || []) as DashboardOrder[]);
+    }
+
+    if (orderItemsResult.error) {
+      addToast("Failed to load order items", "error");
+      console.error(orderItemsResult.error);
+    } else {
+      setOrderItems((orderItemsResult.data || []) as OrderItem[]);
+    }
+
+    if (productsResult.error) {
+      addToast("Failed to load products", "error");
+      console.error(productsResult.error);
+    } else {
+      setProducts((productsResult.data || []) as Product[]);
     }
 
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchProductsPage();
+    fetchAdminData();
   }, []);
 
-  const uploadProductImage = async () => {
-    if (!productImageFile) return productForm.image_url.trim() || null;
+  const getOrderAmount = (order: DashboardOrder) => {
+    const total = Number(order.total_amount ?? 0);
+    const subtotal = Number(order.subtotal ?? 0);
 
-    try {
-      imageFileSchema.parse({
-        type: productImageFile.type,
-        size: productImageFile.size,
-        name: productImageFile.name,
-      });
-    } catch (error) {
-      addToast(getValidationMessage(error), "error");
-      return null;
-    }
-
-    const safeName = productImageFile.name.replace(/[^a-zA-Z0-9.-]/g, "-");
-    const filePath = `products/${Date.now()}-${safeName}`;
-
-    const { error } = await supabase.storage
-      .from("product-images")
-      .upload(filePath, productImageFile, {
-        cacheControl: "3600",
-        upsert: true,
-      });
-
-    if (error) {
-      addToast("Failed to upload product image", "error");
-      console.error(error);
-      return null;
-    }
-
-    const { data } = supabase.storage
-      .from("product-images")
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
+    return total > 0 ? total : subtotal > 0 ? subtotal : 0;
   };
 
-  const resetProductForm = () => {
-    setEditingProductId(null);
-    setProductForm(emptyProductForm);
-    setProductImageFile(null);
-  };
+  const stats = useMemo(() => {
+    const totalRevenue = orders.reduce(
+      (sum, order) => sum + getOrderAmount(order),
+      0
+    );
 
-  const editProduct = (product: Product) => {
-    setEditingProductId(product.id);
-    setProductForm(productToForm(product));
-    setProductImageFile(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+    const deliveredRevenue = orders
+      .filter((order) => order.status === "delivered")
+      .reduce((sum, order) => sum + getOrderAmount(order), 0);
 
-  const saveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
+    const pendingOrders = orders.filter(
+      (order) => order.status === "pending"
+    ).length;
 
-    if (!productForm.name.trim()) {
-      addToast("Product name is required", "error");
-      return;
-    }
+    const activeProducts = products.filter(
+      (product) => product.is_active !== false
+    ).length;
 
-    if (!productForm.category.trim()) {
-      addToast("Category is required", "error");
-      return;
-    }
+    const lowStockProducts = products.filter(
+      (product) => Number(product.stock || 0) <= 5
+    ).length;
 
-    const price = Number(productForm.price);
-    if (!Number.isFinite(price) || price <= 0) {
-      addToast("Enter a valid product price", "error");
-      return;
-    }
+    const averageOrderValue =
+      orders.length > 0 ? totalRevenue / orders.length : 0;
 
-    setProductSaving(true);
-
-    const imageUrl = await uploadProductImage();
-
-    if (productImageFile && !imageUrl) {
-      setProductSaving(false);
-      return;
-    }
-
-    const rawPayload = {
-      ...buildProductPayload(productForm, imageUrl),
-      currency: "USD",
-      short_description: "",
-      disclaimer:
-        "Novelty collectible only. Not legal tender, not cryptocurrency, not an investment product, and not redeemable for monetary value.",
+    return {
+      totalRevenue,
+      deliveredRevenue,
+      pendingOrders,
+      activeProducts,
+      lowStockProducts,
+      averageOrderValue,
+      totalOrders: orders.length,
+      totalProducts: products.length,
     };
+  }, [orders, products]);
 
-    let payload;
+  const hourlySales = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      label: new Date(2026, 0, 1, hour).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        hour12: true,
+      }),
+      orders: 0,
+      sales: 0,
+    }));
 
-    try {
-      payload = productSchema.parse(rawPayload);
-    } catch (error) {
-      addToast(getValidationMessage(error), "error");
-      setProductSaving(false);
-      return;
-    }
+    orders.forEach((order) => {
+      const date = new Date(order.created_at);
 
-    const result = editingProductId
-      ? await supabase.from("products").update(payload).eq("id", editingProductId)
-      : await supabase.from("products").insert(payload);
+      if (Number.isNaN(date.getTime())) return;
 
-    if (result.error) {
-      addToast("Failed to save product", "error");
-      console.error(result.error);
-    } else {
-      addToast(editingProductId ? "Product updated" : "Product added", "success");
-      resetProductForm();
-      fetchProductsPage();
-    }
+      const hour = date.getHours();
+      hours[hour].orders += 1;
+      hours[hour].sales += getOrderAmount(order);
+    });
 
-    setProductSaving(false);
-  };
+    return hours;
+  }, [orders]);
 
-  const quickUpdateProduct = async (
-    productId: string,
-    updates: Partial<Product>
-  ) => {
-    const { error } = await supabase
-      .from("products")
-      .update(updates)
-      .eq("id", productId);
+  const hasHourlyRevenue = hourlySales.some((item) => item.sales > 0);
+  const getHourlyMetric = (item: { sales: number; orders: number }) =>
+    hasHourlyRevenue ? item.sales : item.orders;
 
-    if (error) {
-      addToast("Failed to update product", "error");
-      console.error(error);
-      return;
-    }
+  const maxHourlyMetric = Math.max(
+    ...hourlySales.map((item) => getHourlyMetric(item)),
+    1
+  );
 
-    setProducts((prev) =>
-      prev.map((product) =>
-        product.id === productId ? { ...product, ...updates } : product
-      )
-    );
+  const peakHour = hourlySales.reduce((best, current) => {
+    return getHourlyMetric(current) > getHourlyMetric(best) ? current : best;
+  }, hourlySales[0]);
 
-    addToast("Product updated", "success");
-  };
+  const statusBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
 
-  const deleteProduct = async (productId: string) => {
-    const confirmed = window.confirm(
-      "Delete this product? This cannot be undone."
-    );
+    orderStatuses.forEach((status) => {
+      counts[status] = 0;
+    });
 
-    if (!confirmed) return;
+    orders.forEach((order) => {
+      const status = order.status || "pending";
+      counts[status] = (counts[status] || 0) + 1;
+    });
 
-    const { error } = await supabase.from("products").delete().eq("id", productId);
+    return Object.entries(counts).map(([status, count]) => ({
+      label: status,
+      value: count,
+    }));
+  }, [orders]);
 
-    if (error) {
-      addToast("Failed to delete product", "error");
-      console.error(error);
-    } else {
-      setProducts((prev) => prev.filter((product) => product.id !== productId));
-      addToast("Product deleted", "success");
-    }
-  };
+  const paymentBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    orders.forEach((order) => {
+      const method = order.payment_method || "COD";
+      counts[method] = (counts[method] || 0) + 1;
+    });
+
+    return Object.entries(counts).map(([method, count]) => ({
+      label: method,
+      value: count,
+    }));
+  }, [orders]);
+
+  const topProducts = useMemo(() => {
+    const productMap: Record<
+      string,
+      {
+        name: string;
+        category: string;
+        quantity: number;
+        revenue: number;
+      }
+    > = {};
+
+    orderItems.forEach((item) => {
+      const product = getOrderItemProduct(item);
+      const key = item.product_id || item.id;
+
+      if (!productMap[key]) {
+        productMap[key] = {
+          name: product?.name || "Unknown Product",
+          category: product?.category || "Merch",
+          quantity: 0,
+          revenue: 0,
+        };
+      }
+
+      productMap[key].quantity += Number(item.quantity || 0);
+      productMap[key].revenue +=
+        Number(item.quantity || 0) * Number(item.price || 0);
+    });
+
+    return Object.values(productMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [orderItems]);
+
+  const lowStockProducts = products
+    .filter((product) => Number(product.stock || 0) <= 5)
+    .slice(0, 6);
 
   if (loading) {
     return (
-      <AppShell title="Admin Products" toasts={toasts}>
+      <AppShell title="Admin Dashboard" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.04]">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
         </div>
@@ -263,18 +295,18 @@ export default function AdminProductsPage() {
 
   if (!profile) {
     return (
-      <AppShell title="Admin Products" toasts={toasts}>
+      <AppShell title="Admin Dashboard" toasts={toasts}>
         <section className="mx-auto max-w-xl rounded-[2rem] border border-black/10 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
             Login required
           </p>
           <h1 className="mt-4 text-4xl font-black">Admin Login</h1>
           <p className="mt-4 text-zinc-600 dark:text-gray-400">
-            Please login with your admin account to manage products.
+            Please login with your admin account to access the dashboard.
           </p>
 
           <Link
-            href="/login?redirect=/admin/products"
+            href="/login?redirect=/admin"
             className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
           >
             Login as Admin
@@ -286,7 +318,7 @@ export default function AdminProductsPage() {
 
   if (profile.role !== "admin") {
     return (
-      <AppShell title="Admin Products" toasts={toasts}>
+      <AppShell title="Admin Dashboard" toasts={toasts}>
         <section className="mx-auto max-w-xl rounded-[2rem] border border-black/10 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-red-600">
             Access Denied
@@ -317,339 +349,216 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <AppShell title="Admin Products" toasts={toasts}>
+    <AppShell title="Admin Dashboard" toasts={toasts}>
       <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
-              Product Management
+              Admin Overview
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
-              Manage Products
+              Sales Dashboard
             </h1>
             <p className="mt-3 max-w-2xl text-zinc-600 dark:text-gray-400">
-              Add, edit, hide, feature, delete, and upload product images for
-              your merch catalog.
+              Monitor revenue, peak sales hours, order status, payment methods,
+              top products, and stock warnings.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={fetchProductsPage}
+              onClick={fetchAdminData}
               className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
             >
               Refresh
             </button>
 
             <Link
-              href="/admin/orders"
+              href="/admin/products"
               className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
             >
-              View Orders
+              Manage Products
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="flex items-center justify-between gap-4">
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total Revenue"
+          value={formatUSD(stats.totalRevenue)}
+          helper="All recorded orders"
+        />
+        <StatCard
+          label="Delivered Revenue"
+          value={formatUSD(stats.deliveredRevenue)}
+          helper="Orders marked delivered"
+        />
+        <StatCard
+          label="Total Orders"
+          value={stats.totalOrders.toString()}
+          helper={`${stats.pendingOrders} pending`}
+        />
+        <StatCard
+          label="Average Order"
+          value={formatUSD(stats.averageOrderValue)}
+          helper={`${stats.activeProducts} active products`}
+        />
+      </section>
+
+      <section className="mt-6 grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        <div className="min-w-0 rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
             <div>
-              <h2 className="text-2xl font-black">
-                {editingProductId ? "Edit Product" : "Add Product"}
-              </h2>
+              <h2 className="text-2xl font-black">Peak Sale Hours</h2>
               <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
-                Manage details, pricing, stock, image, and visibility.
+                {stats.totalOrders === 0 ? (
+                  "No recorded orders yet."
+                ) : (
+                  <>
+                    Peak hour:{" "}
+                    <b>
+                      {peakHour.label} ·{" "}
+                      {hasHourlyRevenue
+                        ? `${formatUSD(peakHour.sales)} from ${peakHour.orders} order(s)`
+                        : `${peakHour.orders} order(s)`}
+                    </b>
+                  </>
+                )}
               </p>
             </div>
-
-            {editingProductId && (
-              <button
-                onClick={resetProductForm}
-                className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
-              >
-                Cancel
-              </button>
-            )}
           </div>
 
-          <form onSubmit={saveProduct} className="mt-6 space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <TextInput
-                label="Product Name"
-                value={productForm.name}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, name: value }))
-                }
-                required
-              />
-              <TextInput
-                label="Category"
-                value={productForm.category}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, category: value }))
-                }
-                required
-              />
-              <TextInput
-                label="Price"
-                type="number"
-                value={productForm.price}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, price: value }))
-                }
-                required
-              />
-              <TextInput
-                label="Stock"
-                type="number"
-                value={productForm.stock}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, stock: value }))
-                }
-              />
-              <TextInput
-                label="Brand"
-                value={productForm.brand}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, brand: value }))
-                }
-              />
-              <TextInput
-                label="SKU"
-                value={productForm.sku}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, sku: value }))
-                }
-              />
-              <TextInput
-                label="Slug"
-                value={productForm.slug}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, slug: value }))
-                }
-                placeholder="auto-generated if blank"
-              />
-              <TextInput
-                label="Material"
-                value={productForm.material}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, material: value }))
-                }
-              />
-              <TextInput
-                label="Gender"
-                value={productForm.gender}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, gender: value }))
-                }
-                placeholder="Unisex / Men / Women"
-              />
-              <TextInput
-                label="Sale Price"
-                type="number"
-                value={productForm.sale_price}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, sale_price: value }))
-                }
-              />
-              <TextInput
-                label="Sizes"
-                value={productForm.sizes}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, sizes: value }))
-                }
-                placeholder="S, M, L, XL"
-              />
-              <TextInput
-                label="Colors"
-                value={productForm.colors}
-                onChange={(value) =>
-                  setProductForm((prev) => ({ ...prev, colors: value }))
-                }
-                placeholder="Black, White, Violet"
-              />
+          <div className="mt-8 overflow-x-auto rounded-3xl bg-black/[0.03] p-4 dark:bg-white/[0.05]">
+            <div className="flex min-w-[920px] gap-2">
+              {hourlySales.map((item) => {
+                const metric = getHourlyMetric(item);
+                const height =
+                  metric > 0 ? Math.max((metric / maxHourlyMetric) * 100, 10) : 0;
+
+                return (
+                  <div
+                    key={item.hour}
+                    className="flex min-w-9 flex-1 flex-col items-center gap-2"
+                  >
+                    <div className="flex h-56 w-full items-end">
+                      <div
+                        title={`${item.label}: ${formatUSD(item.sales)} from ${
+                          item.orders
+                        } order(s)`}
+                        className={`w-full rounded-t-xl transition ${
+                          metric > 0
+                            ? "bg-[#58948f] hover:bg-[#093459]"
+                            : "bg-black/[0.04] dark:bg-white/[0.06]"
+                        }`}
+                        style={{ height: `${metric > 0 ? height : 1}%` }}
+                      />
+                    </div>
+                    <div className="whitespace-nowrap text-[10px] font-bold text-zinc-500 dark:text-gray-400">
+                      {item.label}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
 
-            <TextArea
-              label="Description"
-              value={productForm.description}
-              onChange={(value) =>
-                setProductForm((prev) => ({ ...prev, description: value }))
-              }
-              placeholder="Short product description"
-            />
+          <p className="mt-3 text-xs text-zinc-500 dark:text-gray-400">
+            {hasHourlyRevenue
+              ? "Bar height is based on USD sales amount per hour. Hover a bar to view sales and order count."
+              : "Sales amount is unavailable or zero for these records, so bar height is based on order count. Hover a bar for details."}
+          </p>
+        </div>
 
-            <TextArea
-              label="Care Instructions"
-              value={productForm.care_instructions}
-              onChange={(value) =>
-                setProductForm((prev) => ({
-                  ...prev,
-                  care_instructions: value,
-                }))
-              }
-              placeholder="Wash cold, do not bleach, etc."
-            />
+        <div className="grid min-w-0 gap-6">
+          <BreakdownCard
+            title="Order Status"
+            subtitle="Current fulfillment pipeline"
+            items={statusBreakdown}
+            max={stats.totalOrders || 1}
+          />
 
-            <div className="rounded-3xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.05]">
-              <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-zinc-500 dark:text-gray-400">
-                Product Image
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) =>
-                  setProductImageFile(e.target.files?.[0] || null)
-                }
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
-              />
-              <input
-                value={productForm.image_url}
-                onChange={(e) =>
-                  setProductForm((prev) => ({
-                    ...prev,
-                    image_url: e.target.value,
-                  }))
-                }
-                className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-white"
-                placeholder="Or paste image URL"
-              />
-              {(productImageFile || productForm.image_url) && (
-                <p className="mt-2 text-xs text-zinc-500 dark:text-gray-400">
-                  {productImageFile
-                    ? `Selected: ${productImageFile.name}`
-                    : "Current image URL is set."}
-                </p>
-              )}
-            </div>
+          <BreakdownCard
+            title="Payment Methods"
+            subtitle="Customer payment choices"
+            items={paymentBreakdown}
+            max={stats.totalOrders || 1}
+          />
+        </div>
+      </section>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <CheckBox
-                label="Active"
-                checked={productForm.is_active}
-                onChange={(checked) =>
-                  setProductForm((prev) => ({
-                    ...prev,
-                    is_active: checked,
-                  }))
-                }
-              />
-              <CheckBox
-                label="Featured"
-                checked={productForm.is_featured}
-                onChange={(checked) =>
-                  setProductForm((prev) => ({
-                    ...prev,
-                    is_featured: checked,
-                  }))
-                }
-              />
-              <CheckBox
-                label="On Sale"
-                checked={productForm.is_on_sale}
-                onChange={(checked) =>
-                  setProductForm((prev) => ({
-                    ...prev,
-                    is_on_sale: checked,
-                  }))
-                }
-              />
-            </div>
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <h2 className="text-2xl font-black">Top Products</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
+            Based on order item revenue.
+          </p>
 
-            <button
-              disabled={productSaving}
-              className="w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-violet-400"
-            >
-              {productSaving
-                ? "Saving..."
-                : editingProductId
-                ? "Update Product"
-                : "Add Product"}
-            </button>
-          </form>
+          <div className="mt-5 space-y-3">
+            {topProducts.length === 0 ? (
+              <EmptyBlock text="No product sales yet." />
+            ) : (
+              topProducts.map((product, index) => (
+                <div
+                  key={`${product.name}-${index}`}
+                  className="rounded-3xl bg-black/[0.03] p-5 dark:bg-white/[0.05]"
+                >
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <p className="font-black">
+                        {index + 1}. {product.name}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
+                        {product.category} · {product.quantity} sold
+                      </p>
+                    </div>
+                    <p className="font-black">{formatUSD(product.revenue)}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         <div className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <h2 className="text-2xl font-black">Product List</h2>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
-                {products.length} total products in your shop.
-              </p>
-            </div>
-          </div>
+          <h2 className="text-2xl font-black">Inventory Alerts</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
+            {stats.totalProducts} total products · {stats.lowStockProducts} low
+            stock
+          </p>
 
           <div className="mt-5 space-y-3">
-            {products.length === 0 ? (
-              <p className="rounded-3xl bg-black/[0.03] p-5 text-sm text-zinc-500 dark:bg-white/[0.05] dark:text-gray-400">
-                No products yet.
-              </p>
+            {lowStockProducts.length === 0 ? (
+              <EmptyBlock text="No low stock products." />
             ) : (
-              products.map((product) => (
+              lowStockProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="rounded-3xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.05]"
+                  className="flex items-center justify-between rounded-3xl bg-black/[0.03] p-5 dark:bg-white/[0.05]"
                 >
-                  <div className="grid gap-4 md:grid-cols-[auto_1fr_auto] md:items-center">
+                  <div className="flex items-center gap-3">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        className="h-20 w-20 rounded-2xl object-cover"
+                        className="h-12 w-12 rounded-2xl object-cover"
                       />
                     ) : (
-                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-600 text-2xl text-white">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white">
                         🛍️
                       </div>
                     )}
 
                     <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-black">{product.name}</p>
-                        {product.is_featured && <Badge label="featured" />}
-                        {product.is_active === false && <Badge label="hidden" gray />}
-                        {product.is_on_sale && <Badge label="sale" red />}
-                      </div>
-
+                      <p className="font-black">{product.name}</p>
                       <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
-                        {product.category} · Stock: {product.stock ?? 0} ·{" "}
-                        {product.brand || "No brand"} · {product.sku || "No SKU"}
+                        {product.category}
                       </p>
-
-                      <p className="mt-2 font-black">
-                        {product.is_on_sale && product.sale_price
-                          ? `${formatPrice(Number(product.sale_price))} sale · ${formatPrice(Number(product.price))} original`
-                          : formatPrice(Number(product.price))}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 md:justify-end">
-                      <ActionButton label="Edit" onClick={() => editProduct(product)} />
-                      <ActionButton
-                        label={product.is_active === false ? "Show" : "Hide"}
-                        onClick={() =>
-                          quickUpdateProduct(product.id, {
-                            is_active: product.is_active === false,
-                          })
-                        }
-                      />
-                      <ActionButton
-                        label={product.is_featured ? "Unfeature" : "Feature"}
-                        onClick={() =>
-                          quickUpdateProduct(product.id, {
-                            is_featured: product.is_featured !== true,
-                          })
-                        }
-                      />
-                      <button
-                        onClick={() => deleteProduct(product.id)}
-                        className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
                     </div>
                   </div>
+                  <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">
+                    {product.stock || 0} left
+                  </span>
                 </div>
               ))
             )}
@@ -660,122 +569,104 @@ export default function AdminProductsPage() {
   );
 }
 
-function TextInput({
+function StatCard({
   label,
   value,
-  onChange,
-  type = "text",
-  placeholder = "",
-  required = false,
+  helper,
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  placeholder?: string;
-  required?: boolean;
+  helper: string;
 }) {
   return (
-    <div>
-      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-zinc-500 dark:text-gray-400">
+    <div className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-gray-400">
         {label}
-      </label>
-      <input
-        required={required}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
-      />
+      </p>
+      <p className="mt-3 text-3xl font-black">{value}</p>
+      <p className="mt-2 text-sm text-zinc-600 dark:text-gray-400">{helper}</p>
     </div>
   );
 }
 
-function TextArea({
-  label,
-  value,
-  onChange,
-  placeholder,
+function BreakdownCard({
+  title,
+  subtitle,
+  items,
+  max,
 }: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
+  title: string;
+  subtitle: string;
+  items: { label: string; value: number }[];
+  max: number;
 }) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+
   return (
-    <div>
-      <label className="mb-2 block text-xs font-black uppercase tracking-[0.15em] text-zinc-500 dark:text-gray-400">
-        {label}
-      </label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={3}
-        placeholder={placeholder}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-zinc-950 outline-none focus:border-violet-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-gray-500"
-      />
+    <div className="min-w-0 rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+        <div>
+          <h2 className="text-2xl font-black">{title}</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-gray-400">
+            {subtitle}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-black/[0.03] px-4 py-3 text-right dark:bg-white/[0.05]">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-gray-400">
+            Total
+          </p>
+          <p className="text-xl font-black">{total}</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-3">
+        {items.length === 0 ? (
+          <EmptyBlock text="No data yet." />
+        ) : (
+          items.map((item) => {
+            const width = Math.max((item.value / max) * 100, item.value === 0 ? 0 : 6);
+            const percentage = max > 0 ? Math.round((item.value / max) * 100) : 0;
+
+            return (
+              <div
+                key={item.label}
+                className="rounded-2xl border border-black/10 bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03]"
+              >
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="break-words font-black capitalize">
+                      {item.label}
+                    </p>
+                    <p className="text-xs text-zinc-600 dark:text-gray-400">
+                      {percentage}% of orders
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-violet-600 px-3 py-1 text-xs font-black text-white">
+                    {item.value}
+                  </span>
+                </div>
+
+                <div className="h-3 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-violet-600"
+                    style={{ width: `${width}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
 
-function CheckBox({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
+function EmptyBlock({ text }: { text: string }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.05]">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5"
-      />
-      <span className="text-sm font-black uppercase tracking-[0.15em]">
-        {label}
-      </span>
-    </label>
-  );
-}
-
-function ActionButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
-    >
-      {label}
-    </button>
-  );
-}
-
-function Badge({
-  label,
-  gray = false,
-  red = false,
-}: {
-  label: string;
-  gray?: boolean;
-  red?: boolean;
-}) {
-  return (
-    <span
-      className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${
-        red ? "bg-red-600" : gray ? "bg-zinc-500" : "bg-violet-600"
-      }`}
-    >
-      {label}
-    </span>
+    <p className="rounded-3xl bg-black/[0.03] p-5 text-sm text-zinc-500 dark:bg-white/[0.05] dark:text-gray-400">
+      {text}
+    </p>
   );
 }

@@ -29,7 +29,7 @@ export default function AdminCustomersPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
-    const id = Date.now();
+    const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -171,7 +171,7 @@ export default function AdminCustomersPage() {
     return (
       <AppShell title="Admin Customers" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: '#58948f', borderTopColor: 'transparent' }} />
         </div>
       </AppShell>
     );
@@ -181,7 +181,7 @@ export default function AdminCustomersPage() {
     return (
       <AppShell title="Admin Customers" toasts={toasts}>
         <section className="mx-auto max-w-xl rounded-[2rem] border border-black/10 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+          <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#58948f' }}>
             Login required
           </p>
           <h1 className="mt-4 text-4xl font-black">Admin Login</h1>
@@ -191,7 +191,8 @@ export default function AdminCustomersPage() {
 
           <Link
             href="/login?redirect=/admin/customers"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white"
+            style={{ backgroundColor: '#093459' }}
           >
             Login as Admin
           </Link>
@@ -223,7 +224,8 @@ export default function AdminCustomersPage() {
 
           <Link
             href="/"
-            className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
+            className="mt-6 inline-block rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-white"
+            style={{ backgroundColor: '#093459' }}
           >
             Back to Shop
           </Link>
@@ -243,7 +245,7 @@ export default function AdminCustomersPage() {
       <section className="rounded-[2.5rem] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#58948f' }}>
               Customer Management
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -256,19 +258,33 @@ export default function AdminCustomersPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={fetchCustomersPage}
-              className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
-            >
-              Refresh
-            </button>
+           <button
+           onClick={fetchCustomersPage}
+             className="rounded-full border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-200 dark:border-white/10"
+            style={{ color: 'inherit' }}
+           onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#58948f';
+           e.currentTarget.style.borderColor = '#58948f';
+            e.currentTarget.style.color = '#ffffff';
+           }}
+           onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+           e.currentTarget.style.borderColor = '';
+         e.currentTarget.style.color = '';
+                }}
+>
+             Refresh
+          </button>
 
-            <Link
-              href="/admin/orders"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black dark:hover:bg-violet-400"
-            >
-              View Orders
-            </Link>
+          <Link
+           href="/admin/orders"
+           className="rounded-full px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-white transition-colors duration-200"
+           style={{ backgroundColor: '#58948f' }}
+           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#093459'}
+           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#58948f'}
+           >
+           View Orders
+          </Link>
           </div>
         </div>
       </section>
@@ -302,16 +318,25 @@ export default function AdminCustomersPage() {
               </option>
             </select>
           </div>
-
-          <button
-            onClick={() => {
-              setSearch("");
-              setRoleFilter("all");
-            }}
-            className="rounded-2xl border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+           <button
+              onClick={() => {
+               setSearch("");
+                setRoleFilter("all");
+           }}
+             className="rounded-2xl border border-black/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-200 dark:border-white/10"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#58948f';
+           e.currentTarget.style.borderColor = '#58948f';
+            e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+             e.currentTarget.style.backgroundColor = 'transparent';
+             e.currentTarget.style.borderColor = '';
+            e.currentTarget.style.color = '';
+          }}
           >
             Reset
-          </button>
+         </button>
         </div>
       </section>
 
@@ -352,7 +377,7 @@ export default function AdminCustomersPage() {
                           className="h-12 w-12 rounded-2xl object-cover"
                         />
                       ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 font-black text-white">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl font-black text-white" style={{ backgroundColor: '#58948f' }}>
                           {customer.full_name?.[0]?.toUpperCase() || "U"}
                         </div>
                       )}
@@ -377,11 +402,8 @@ export default function AdminCustomersPage() {
                   </td>
                   <td className="py-4">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-black uppercase text-white ${
-                        customer.role === "admin"
-                          ? "bg-violet-600"
-                          : "bg-zinc-500"
-                      }`}
+                      className="rounded-full px-3 py-1 text-xs font-black uppercase text-white"
+                      style={{ backgroundColor: customer.role === "admin" ? '#58948f' : '#093459' }}
                     >
                       {customer.role || "customer"}
                     </span>
@@ -397,11 +419,21 @@ export default function AdminCustomersPage() {
                   </td>
                   <td className="py-4">
                     <button
-                      onClick={() => setSelectedCustomer(customer)}
-                      className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
-                    >
-                      Details
-                    </button>
+                 onClick={() => setSelectedCustomer(customer)}
+                 className="rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition-colors duration-200 dark:border-white/10"
+                 onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#58948f';
+                e.currentTarget.style.borderColor = '#58948f';
+                e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = '';
+                e.currentTarget.style.color = '';
+             }}
+>
+                   Details
+                </button>
                   </td>
                 </tr>
               ))}
@@ -446,12 +478,13 @@ function CustomerDetailsModal({
       <div className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] border border-black/10 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-zinc-950 md:p-8">
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-bold text-white dark:bg-white dark:text-black"
+          className="absolute right-5 top-5 rounded-full px-3 py-2 text-sm font-bold text-white"
+          style={{ backgroundColor: '#093459' }}
         >
           ✕
         </button>
 
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+        <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#58948f' }}>
           Customer Details
         </p>
 
@@ -463,7 +496,7 @@ function CustomerDetailsModal({
               className="h-28 w-28 rounded-[2rem] object-cover"
             />
           ) : (
-            <div className="flex h-28 w-28 items-center justify-center rounded-[2rem] bg-violet-600 text-4xl font-black text-white">
+            <div className="flex h-28 w-28 items-center justify-center rounded-[2rem] text-4xl font-black text-white" style={{ backgroundColor: '#58948f' }}>
               {customer.full_name?.[0]?.toUpperCase() || "U"}
             </div>
           )}
@@ -476,9 +509,8 @@ function CustomerDetailsModal({
               Profile ID: {customer.id}
             </p>
             <span
-              className={`mt-3 inline-block rounded-full px-4 py-2 text-xs font-black uppercase text-white ${
-                customer.role === "admin" ? "bg-violet-600" : "bg-zinc-500"
-              }`}
+              className="mt-3 inline-block rounded-full px-4 py-2 text-xs font-black uppercase text-white"
+              style={{ backgroundColor: customer.role === "admin" ? '#58948f' : '#093459' }}
             >
               {customer.role || "customer"}
             </span>

@@ -154,6 +154,12 @@ export default function AdminAgentsPage() {
       setOrders((orderResult.data || []) as AgentOrder[]);
     }
 
+    if (workloadResult.error) {
+      console.error("Workload load error:", workloadResult.error);
+    } else {
+      setInboundWorkload((workloadResult.data || []) as InboundWorkload[]);
+    }
+
     setLoading(false);
   };
 
@@ -392,7 +398,7 @@ export default function AdminAgentsPage() {
     return (
       <AppShell title="Admin Agents" toasts={toasts}>
         <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: '#58948f', borderTopColor: 'transparent' }} />
         </div>
       </AppShell>
     );
@@ -438,7 +444,7 @@ export default function AdminAgentsPage() {
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#58948f' }}>
               Agent Management
             </p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">
@@ -454,13 +460,26 @@ export default function AdminAgentsPage() {
             <button
               type="button"
               onClick={loadAgents}
-              className="rounded-full border border-[#cdbba7] bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.18em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:bg-transparent dark:hover:bg-white dark:hover:text-black"
+              className="rounded-full border border-[#cdbba7] bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.18em] transition-colors duration-200 dark:border-white/10 dark:bg-transparent"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#58948f';
+                e.currentTarget.style.borderColor = '#58948f';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = '';
+                e.currentTarget.style.color = '';
+              }}
             >
               Refresh
             </button>
             <Link
               href="/admin/sales"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+              className="rounded-full px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors duration-200"
+              style={{ backgroundColor: '#093459' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#093459'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#58948f'}
             >
               Sales Analytics
             </Link>
@@ -541,7 +560,7 @@ export default function AdminAgentsPage() {
                   <XAxis type="number" tickFormatter={(value) => `$${value}`} tick={{ fontSize: 11 }} />
                   <YAxis dataKey="name" type="category" width={115} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(value) => formatUSD(Number(value))} />
-                  <Bar dataKey="revenue" name="Delivered Revenue" fill="#7c3aed" radius={[0, 10, 10, 0]} />
+                  <Bar dataKey="revenue" name="Delivered Revenue" fill="#58948f" radius={[0, 10, 10, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -569,7 +588,7 @@ export default function AdminAgentsPage() {
             <p className="font-black">Not call conversion yet</p>
             <p className="mt-1">
               True conversion rate requires recording attempted calls or leads,
-              including customers who did not purchase.
+              include customers who did not purchase.
             </p>
           </div>
         </div>
@@ -691,7 +710,17 @@ export default function AdminAgentsPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedAgent(agent)}
-                          className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-bold transition hover:bg-zinc-950 hover:text-white dark:border-white/10"
+                          className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-bold transition-colors duration-200 dark:border-white/10"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#58948f';
+                            e.currentTarget.style.borderColor = '#58948f';
+                            e.currentTarget.style.color = '#ffffff';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.borderColor = '';
+                            e.currentTarget.style.color = '';
+                          }}
                         >
                           Details
                         </button>
@@ -829,13 +858,18 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-xs font-bold text-white transition disabled:opacity-50 ${
-        style === "approve"
-          ? "bg-green-600 hover:bg-green-700"
-          : style === "neutral"
-            ? "bg-violet-600 hover:bg-violet-700"
-            : "bg-red-600 hover:bg-red-700"
-      }`}
+      className="rounded-full px-4 py-2 text-xs font-bold text-white transition-colors duration-200 disabled:opacity-50"
+      style={{
+        backgroundColor: style === "approve" ? "#58948f" : style === "neutral" ? "#093459" : "#dc2626"
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.backgroundColor = style === "approve" ? "#093459" : style === "neutral" ? "#58948f" : "#b91c1c";
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = style === "approve" ? "#58948f" : style === "neutral" ? "#093459" : "#dc2626";
+      }}
     >
       {label}
     </button>
@@ -874,14 +908,17 @@ function AccessCard({
 }) {
   return (
     <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-violet-600"}`}>
+      <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: danger ? '#dc2626' : '#58948f' }}>
         {danger ? "Access Denied" : "Login Required"}
       </p>
       <h1 className="mt-4 text-4xl font-black">{title}</h1>
       <p className="mt-4 text-[#725f4d] dark:text-gray-400">{body}</p>
       <Link
         href={href}
-        className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-violet-700 dark:bg-white dark:text-black"
+        className="mt-6 inline-block rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition-colors duration-200"
+        style={{ backgroundColor: '#093459' }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#58948f'}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#093459'}
       >
         {button}
       </Link>
@@ -906,92 +943,101 @@ function AgentDetailModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-sm font-black text-white dark:bg-white dark:text-black"
+          className="absolute right-5 top-5 rounded-full px-3 py-2 text-sm font-bold text-white transition-colors duration-200"
+          style={{ backgroundColor: '#093459' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#58948f'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#093459'}
         >
           ✕
         </button>
 
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">
-          Agent Details
+        <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#58948f' }}>
+          Agent Profile Details
         </p>
-        <h2 className="mt-3 text-3xl font-black">
+        <h2 className="mt-2 text-3xl font-black">
           {agent.display_name || "Unnamed Agent"}
         </h2>
+        <p className="text-sm text-[#725f4d] dark:text-gray-400">
+          Referral Code: {agent.referral_code || "None"} · Phone: {agent.phone || "N/A"}
+        </p>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <StatCard label="Guided Orders" value={agent.allOrders.toString()} />
-          <StatCard label="Delivered Sales" value={formatUSD(agent.deliveredRevenue)} highlight />
-          <StatCard label="Pipeline" value={formatUSD(agent.pipelineValue)} />
-          <StatCard label="Delivered Rate" value={`${agent.deliveredRate.toFixed(0)}%`} />
+        <div className="mt-6 grid gap-4 grid-cols-2 md:grid-cols-4">
+          <div className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10">
+            <p className="text-xs font-bold uppercase text-[#725f4d] dark:text-gray-400">Delivered Revenue</p>
+            <p className="mt-1 text-xl font-black">{formatUSD(agent.deliveredRevenue)}</p>
+          </div>
+          <div className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10">
+            <p className="text-xs font-bold uppercase text-[#725f4d] dark:text-gray-400">Pipeline Value</p>
+            <p className="mt-1 text-xl font-black">{formatUSD(agent.pipelineValue)}</p>
+          </div>
+          <div className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10">
+            <p className="text-xs font-bold uppercase text-[#725f4d] dark:text-gray-400">Delivered Orders</p>
+            <p className="mt-1 text-xl font-black">{agent.deliveredOrders} / {agent.allOrders}</p>
+          </div>
+          <div className="rounded-2xl border border-[#eadfd1] p-4 dark:border-white/10">
+            <p className="text-xs font-bold uppercase text-[#725f4d] dark:text-gray-400">Delivered Rate</p>
+            <p className="mt-1 text-xl font-black">{agent.deliveredRate.toFixed(0)}%</p>
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-            <h3 className="text-xl font-black">Profile</h3>
-            <div className="mt-4 space-y-3 text-sm">
-              <DetailRow label="Status" value={agent.status} />
-              <DetailRow label="Phone" value={agent.phone || "N/A"} />
-              <DetailRow label="Referral Code" value={agent.referral_code || "Not issued"} />
-              <DetailRow
-                label="Approved At"
-                value={
-                  agent.approved_at
-                    ? new Date(agent.approved_at).toLocaleString()
-                    : "N/A"
-                }
-              />
-              <DetailRow label="Notes" value={agent.notes || "No notes"} />
-            </div>
-          </div>
+        <div className="mt-6">
+          <h3 className="text-lg font-black">Notes / Application Detail</h3>
+          <p className="mt-2 rounded-2xl bg-[#f8efe4] p-4 text-sm text-[#725f4d] dark:bg-white/[0.05] dark:text-gray-300">
+            {agent.notes || "No additional profile information or application text submitted."}
+          </p>
+        </div>
 
-          <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
-            <h3 className="text-xl font-black">Recent Attributed Orders</h3>
-            <div className="mt-4 space-y-3">
-              {orders.length === 0 ? (
-                <p className="rounded-2xl bg-white p-4 text-sm text-[#725f4d] dark:bg-white/[0.03] dark:text-gray-400">
-                  No attributed orders yet.
-                </p>
-              ) : (
-                orders.slice(0, 8).map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex justify-between gap-4 rounded-2xl bg-white p-4 dark:bg-white/[0.04]"
-                  >
-                    <div>
-                      <p className="font-black">
-                        #{order.id.slice(0, 8).toUpperCase()}
-                      </p>
-                      <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">
-                        {order.full_name || "Customer"} · {order.status || "pending"}
-                      </p>
-                    </div>
-                    <p className="font-black">{formatUSD(order.total_amount)}</p>
-                  </div>
-                ))
-              )}
-            </div>
+        <div className="mt-6">
+          <h3 className="text-lg font-black">Attributed Orders ({orders.length})</h3>
+          <div className="mt-3 max-h-60 overflow-y-auto rounded-2xl border border-[#eadfd1] dark:border-white/10">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-[#f8efe4] text-xs uppercase tracking-wider text-[#725f4d] dark:bg-white/[0.02] dark:text-gray-400">
+                  <th className="p-3">Order ID</th>
+                  <th className="p-3">Customer</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Total Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id} className="border-b border-[#eadfd1] last:border-0 dark:border-white/5">
+                    <td className="p-3 font-mono text-xs">{order.id.slice(0, 8).toUpperCase()}</td>
+                    <td className="p-3 font-bold">{order.full_name || "N/A"}</td>
+                    <td className="p-3 uppercase text-xs font-black">{order.status || "pending"}</td>
+                    <td className="p-3 font-black">{formatUSD(order.total_amount)}</td>
+                  </tr>
+                ))}
+                {orders.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="p-6 text-center text-[#725f4d] dark:text-gray-400">
+                      No attributed orders found for this agent.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 w-full rounded-2xl border border-[#cdbba7] py-4 text-sm font-black uppercase tracking-[0.18em] transition hover:bg-zinc-950 hover:text-white dark:border-white/10 dark:hover:bg-white dark:hover:text-black"
+          className="mt-6 w-full rounded-2xl border border-[#cdbba7] py-4 text-sm font-black uppercase tracking-[0.2em] transition-colors duration-200 dark:border-white/10"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#58948f';
+            e.currentTarget.style.borderColor = '#58948f';
+            e.currentTarget.style.color = '#ffffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderColor = '';
+            e.currentTarget.style.color = '';
+          }}
         >
-          Close
+          Close View
         </button>
       </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-black uppercase tracking-[0.15em] text-[#725f4d] dark:text-gray-400">
-        {label}
-      </p>
-      <p className="mt-1 font-bold">{value}</p>
     </div>
   );
 }

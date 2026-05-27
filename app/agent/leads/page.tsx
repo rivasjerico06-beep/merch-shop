@@ -32,6 +32,9 @@ type Lead = {
   contact_basis?: string | null;
   contact_basis_details?: string | null;
   created_via?: string | null;
+  agent_acknowledged_at?: string | null;
+  assignment_acceptance_due_at?: string | null;
+  first_contact_due_at?: string | null;
 };
 
 type ReviewRequest = {
@@ -152,6 +155,7 @@ export default function AgentLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [savingCall, setSavingCall] = useState(false);
   const [agentApproved, setAgentApproved] = useState(false);
+  const [currentAgentId, setCurrentAgentId] = useState("");
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = (message: string, type: ToastItem["type"] = "info") => {
@@ -171,6 +175,7 @@ export default function AgentLeadsPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setCurrentAgentId("");
       setAgentApproved(false);
       setLeads([]);
       setActivities([]);
@@ -178,6 +183,8 @@ export default function AgentLeadsPage() {
       setLoading(false);
       return;
     }
+
+    setCurrentAgentId(user.id);
 
     const { data: agentProfile } = await supabase
       .from("agent_profiles")
@@ -197,7 +204,7 @@ export default function AgentLeadsPage() {
       supabase
         .from("sales_leads")
         .select(
-          "id, customer_name, phone, email, source, status, call_permission_status, do_not_contact, product_interest, next_follow_up_at, last_contacted_at, created_at, contact_basis, contact_basis_details, created_via"
+          "id, customer_name, phone, email, source, status, call_permission_status, do_not_contact, product_interest, next_follow_up_at, last_contacted_at, created_at, contact_basis, contact_basis_details, created_via, agent_acknowledged_at, assignment_acceptance_due_at, first_contact_due_at"
         )
         .eq("assigned_agent_id", user.id)
         .order("created_at", { ascending: false }),
@@ -241,6 +248,60 @@ export default function AgentLeadsPage() {
   useEffect(() => {
     loadLeads();
   }, []);
+
+  useEffect(() => {
+    if (!currentAgentId || !agentApproved) return;
+
+    let refreshTimer: number | undefined;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void loadLeads();
+      }, 150);
+    };
+
+    const channel = supabase
+      .channel(`agent-lead-queue-${currentAgentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sales_leads",
+          filter: `assigned_agent_id=eq.${currentAgentId}`,
+        },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "lead_activities",
+          filter: `agent_id=eq.${currentAgentId}`,
+        },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "lead_review_requests",
+          filter: `requested_by=eq.${currentAgentId}`,
+        },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+    // Subscribe only after approved agent identity is known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAgentId, agentApproved]);
 
   const summary = useMemo(() => {
     const today = new Date();
@@ -398,7 +459,39 @@ export default function AgentLeadsPage() {
     setSubmittingReview(false);
   };
 
+  const requiresInboundAcceptance = (lead: Lead) =>
+    lead.created_via === "website_request" && !lead.agent_acknowledged_at;
+
+  const acceptInboundCallback = async (lead: Lead) => {
+    const { error } = await supabase.rpc("accept_my_inbound_callback", {
+      input_lead_id: lead.id,
+    });
+
+    if (error) {
+      addToast(error.message || "Unable to accept this callback request.", "error");
+      return;
+    }
+
+    addToast("Callback request accepted. You may now contact the customer.", "success");
+    await loadLeads();
+
+    setSelectedLead((previous) =>
+      previous?.id === lead.id
+        ? {
+            ...previous,
+            agent_acknowledged_at: new Date().toISOString(),
+            first_contact_due_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          }
+        : previous
+    );
+  };
+
   const copyAssistedShoppingLink = async (lead: Lead) => {
+    if (requiresInboundAcceptance(lead)) {
+      addToast("Accept this customer callback request before sending a shopping link.", "error");
+      return;
+    }
+
     if (
       lead.do_not_contact ||
       lead.call_permission_status !== "approved_to_call" ||
@@ -434,6 +527,11 @@ export default function AgentLeadsPage() {
   };
 
   const copyPhoneAndOpenDialer = async (lead: Lead) => {
+    if (requiresInboundAcceptance(lead)) {
+      addToast("Accept this customer callback request before placing a call.", "error");
+      return;
+    }
+
     if (
       lead.do_not_contact ||
       lead.call_permission_status !== "approved_to_call"
@@ -456,6 +554,11 @@ export default function AgentLeadsPage() {
     event.preventDefault();
 
     if (!selectedLead) return;
+
+    if (requiresInboundAcceptance(selectedLead)) {
+      addToast("Accept this customer callback request before recording a call.", "error");
+      return;
+    }
 
     if (callForm.outcome === "follow_up" && !callForm.follow_up_at) {
       addToast("Set a follow-up date and time.", "error");
@@ -727,7 +830,14 @@ export default function AgentLeadsPage() {
                     <PermissionBadge value={lead.call_permission_status} />
                   </td>
                   <td className="py-4">
-                    <StatusBadge value={lead.status} />
+                    <div className="flex flex-col items-start gap-2">
+                      <StatusBadge value={lead.status} />
+                      {requiresInboundAcceptance(lead) && (
+                        <span className="rounded-full bg-amber-500 px-3 py-1 text-[10px] font-black uppercase text-black">
+                          Accept Required
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-4">
                     {lead.next_follow_up_at
@@ -796,6 +906,7 @@ export default function AgentLeadsPage() {
           setCallForm={setCallForm}
           savingCall={savingCall}
           onClose={() => setSelectedLead(null)}
+          onAccept={() => acceptInboundCallback(selectedLead)}
           onOpenDialer={() => copyPhoneAndOpenDialer(selectedLead)}
           onCopyAssistedLink={() => copyAssistedShoppingLink(selectedLead)}
           onSubmit={recordCallResult}
@@ -1085,6 +1196,7 @@ function LeadCallModal({
   setCallForm,
   savingCall,
   onClose,
+  onAccept,
   onOpenDialer,
   onCopyAssistedLink,
   onSubmit,
@@ -1096,13 +1208,19 @@ function LeadCallModal({
   setCallForm: React.Dispatch<React.SetStateAction<CallForm>>;
   savingCall: boolean;
   onClose: () => void;
+  onAccept: () => void;
   onOpenDialer: () => void;
   onCopyAssistedLink: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onDoNotContact: () => void;
 }) {
+  const needsAcceptance =
+    lead.created_via === "website_request" && !lead.agent_acknowledged_at;
+
   const allowed =
-    !lead.do_not_contact && lead.call_permission_status === "approved_to_call";
+    !needsAcceptance &&
+    !lead.do_not_contact &&
+    lead.call_permission_status === "approved_to_call";
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -1131,6 +1249,28 @@ function LeadCallModal({
                 <InfoRow label="Status" value={titleCase(lead.status)} />
                 <InfoRow label="Permission" value={titleCase(lead.call_permission_status)} />
               </div>
+
+              {needsAcceptance && (
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                  <p className="font-black">Acceptance required before calling</p>
+                  <p className="mt-2">
+                    This customer requested a callback through the website. Accept
+                    the assignment first so response tracking starts correctly.
+                  </p>
+                  {lead.assignment_acceptance_due_at && (
+                    <p className="mt-2 text-xs font-bold">
+                      Accept by: {new Date(lead.assignment_acceptance_due_at).toLocaleString()}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onAccept}
+                    className="mt-4 w-full rounded-2xl bg-green-600 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-green-700"
+                  >
+                    Accept Request
+                  </button>
+                </div>
+              )}
 
               <div className="mt-5 space-y-3">
                 <button
