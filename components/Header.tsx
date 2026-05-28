@@ -35,19 +35,19 @@ export default function Header({
   isAgentMode = false,
   isApprovedAgent = false,
 }: HeaderProps) {
- const headerBg = isDark
-    ? "border-white/10 bg-black/70 text-white"
-    : "border-slate-100 bg-white/90 text-[#18120d] shadow-[0_1px_0_rgba(0,0,0,0.05)]";;
+  const headerBg = isDark
+    ? "border-[#58948f]/20 bg-black/70 text-white"
+    : "border-[#093459]/15 bg-[#f0f7f6]/90 text-[#093459] shadow-[0_1px_0_rgba(9,52,89,0.08)]";
   const inputClass = isDark
-    ? "border-white/10 bg-zinc-900 text-white placeholder:text-gray-500 focus:border-violet-500"
-    : "border-[#cdbba7] bg-white text-[#18120d] placeholder:text-[#8c7a67] shadow-inner focus:border-violet-600 focus:ring-4 focus:ring-violet-200/70";
+    ? "border-[#58948f]/20 bg-zinc-900 text-white placeholder:text-[#58948f]/50 focus:border-[#58948f]"
+    : "border-[#093459]/20 bg-white text-[#093459] placeholder:text-[#093459]/40 shadow-inner focus:border-[#58948f] focus:ring-4 focus:ring-[#58948f]/15";
   const outlineButton = isDark
-    ? "border-white/10 hover:bg-white hover:text-black"
-    : "border-[#cdbba7] bg-white text-[#2b2118] shadow-sm hover:border-[#18120d] hover:bg-[#18120d] hover:text-white";
+    ? "border-[#58948f]/20 hover:bg-[#58948f] hover:text-white"
+    : "border-[#093459]/20 bg-white text-[#093459] shadow-sm hover:border-[#58948f] hover:bg-[#58948f] hover:text-white";
   const primaryButton = isDark
-    ? "bg-white text-black hover:bg-violet-400"
-    : "bg-[#18120d] text-white shadow-sm hover:bg-violet-700";
-  const mutedText = isDark ? "text-gray-400" : "text-[#725f4d]";
+    ? "bg-[#58948f] text-white hover:bg-[#093459]"
+    : "bg-[#093459] text-white shadow-sm hover:bg-[#58948f]";
+  const mutedText = isDark ? "text-[#58948f]" : "text-[#093459]/50";
   const displayName = profileName || userEmail;
 
   const switchToCustomerMode = () => {
@@ -77,90 +77,90 @@ export default function Header({
         )}
 
         <div className="flex items-center gap-4">
-  {/* Theme Toggle Button */}
-  <button
-    onClick={onToggleTheme}
-    className="p-1 transition hover:opacity-80"
-    aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-  >
-    <FontAwesomeIcon
-      icon={isDark ? faSun : faMoon}
-      className={isDark ? "text-yellow-300" : "text-[#093459]"}
-      size="sm"
-    />
-  </button>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={onToggleTheme}
+            className="p-1 transition hover:opacity-80"
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            <FontAwesomeIcon
+              icon={isDark ? faSun : faMoon}
+              className={isDark ? "text-[#58948f]" : "text-[#093459]"}
+              size="sm"
+            />
+          </button>
 
-  {/* Cart Button */}
-  <Link 
-    href="/cart" 
-    className="relative p-1 transition hover:opacity-80"
-    aria-label="View Cart"
-  >
-    <FontAwesomeIcon icon={faShoppingCart} className="text-[#093459] dark:text-[#58948f]" size="sm" />
-    {cartCount > 0 && (
-      <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#58948f] px-1 text-[9px] font-black text-white">
-        {cartCount}
-      </span>
-    )}
-  </Link>
+          {/* Cart Button */}
+          <Link
+            href="/cart"
+            className="relative p-1 transition hover:opacity-80"
+            aria-label="View Cart"
+          >
+            <FontAwesomeIcon icon={faShoppingCart} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+            {cartCount > 0 && (
+              <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#58948f] px-1 text-[9px] font-black text-white">
+                {cartCount}
+              </span>
+            )}
+          </Link>
 
-  {/* Customer Mode Action */}
-  {isAgentMode && (
-    <button 
-      onClick={switchToCustomerMode} 
-      className="hidden p-1 transition hover:opacity-80 md:inline-block"
-      aria-label="Switch to Customer Mode"
-      title="Customer Mode"
-    >
-      <FontAwesomeIcon icon={faUserCheck} className="text-[#093459] dark:text-[#58948f]" size="sm" />
-    </button>
-  )}
+          {/* Customer Mode Action */}
+          {isAgentMode && (
+            <button
+              onClick={switchToCustomerMode}
+              className="hidden p-1 transition hover:opacity-80 md:inline-block"
+              aria-label="Switch to Customer Mode"
+              title="Customer Mode"
+            >
+              <FontAwesomeIcon icon={faUserCheck} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+            </button>
+          )}
 
-  {/* Agent Portal Navigation */}
-  {!isAgentMode && isApprovedAgent && !isAdmin && (
-    <Link 
-      href="/agent-login" 
-      className="hidden p-1 transition hover:opacity-80 md:inline-block"
-      aria-label="Go to Agent Portal"
-      title="Agent Portal"
-    >
-      <FontAwesomeIcon icon={faUserTie} className="text-[#093459] dark:text-[#58948f]" size="sm" />
-    </Link>
-  )}
+          {/* Agent Portal Navigation */}
+          {!isAgentMode && isApprovedAgent && !isAdmin && (
+            <Link
+              href="/agent-login"
+              className="hidden p-1 transition hover:opacity-80 md:inline-block"
+              aria-label="Go to Agent Portal"
+              title="Agent Portal"
+            >
+              <FontAwesomeIcon icon={faUserTie} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+            </Link>
+          )}
 
-  {/* Admin Control Dashboard */}
-  {isAdmin && (
-    <Link 
-      href="/admin" 
-      className="hidden p-1 transition hover:opacity-80 md:inline-block"
-      aria-label="Go to Admin Dashboard"
-      title="Admin"
-    >
-      <FontAwesomeIcon icon={faUserShield} className="text-[#093459] dark:text-[#58948f]" size="sm" />
-    </Link>
-  )}
+          {/* Admin Control Dashboard */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="hidden p-1 transition hover:opacity-80 md:inline-block"
+              aria-label="Go to Admin Dashboard"
+              title="Admin"
+            >
+              <FontAwesomeIcon icon={faUserShield} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+            </Link>
+          )}
 
-  {/* Profile Account / Authentication Entry */}
-  {userEmail ? (
-    <Link 
-      href="/account" 
-      className="p-1 transition hover:opacity-80" 
-      title={displayName}
-      aria-label="View Account"
-    >
-      <FontAwesomeIcon icon={faUser} className="text-[#093459] dark:text-[#58948f]" size="sm" />
-    </Link>
-  ) : (
-    <Link 
-      href="/login" 
-      className="p-1 transition hover:opacity-80"
-      aria-label="Login"
-      title="Login"
-    >
-      <FontAwesomeIcon icon={faSignInAlt} className="text-[#093459] dark:text-[#58948f]" size="sm" />
-    </Link>
-  )}
-</div>
+          {/* Profile Account / Authentication Entry */}
+          {userEmail ? (
+            <Link
+              href="/account"
+              className="p-1 transition hover:opacity-80"
+              title={displayName}
+              aria-label="View Account"
+            >
+              <FontAwesomeIcon icon={faUser} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="p-1 transition hover:opacity-80"
+              aria-label="Login"
+              title="Login"
+            >
+              <FontAwesomeIcon icon={faSignInAlt} className="text-[#093459] dark:text-[#58948f]" size="sm" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {onSearchChange && (

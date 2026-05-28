@@ -663,14 +663,14 @@ export default function AdminLeadsPage() {
       <section className="rounded-[2.5rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">HelloAirDial Operations</p>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">HelloAirDial Operations</p>
             <h1 className="mt-3 text-4xl font-black md:text-6xl">Lead Conversion</h1>
             <p className="mt-3 max-w-3xl text-[#725f4d] dark:text-gray-400">
               Assign authorized calls, connect leads to verified customer accounts,
               and link referral-attributed orders into measurable conversions.
             </p>
           </div>
-          <button type="button" onClick={() => setShowCreate(true)} className="rounded-full bg-zinc-950 px-6 py-4 text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-violet-700 dark:bg-white dark:text-black">
+          <button type="button" onClick={() => setShowCreate(true)} className="rounded-full bg-[#093459] px-6 py-4 text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-[#58948f] dark:bg-white dark:text-black">
             Add New Lead
           </button>
         </div>
@@ -736,7 +736,7 @@ export default function AdminLeadsPage() {
                         const lead = leads.find((row) => row.id === item.lead_id);
                         if (lead) setSelectedLead(lead);
                       }}
-                      className="text-xs font-black uppercase tracking-[0.12em] text-violet-600"
+                      className="text-xs font-black uppercase tracking-[0.12em] text-[#58948f]"
                     >
                       Open Lead Details
                     </button>
@@ -761,12 +761,12 @@ export default function AdminLeadsPage() {
         <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-600">
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-[#58948f]">
                 Agent Requests
               </p>
               <h2 className="mt-2 text-2xl font-black">Review Queue</h2>
             </div>
-            <span className="rounded-full bg-violet-600 px-4 py-2 text-xs font-black text-white">
+            <span className="rounded-full bg-[#58948f] px-4 py-2 text-xs font-black text-white">
               {reviewRequests.length}
             </span>
           </div>
@@ -828,7 +828,7 @@ export default function AdminLeadsPage() {
       <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-[#58948f]">
               Automated Operations
             </p>
             <h2 className="mt-2 text-2xl font-black">Callback Recovery History</h2>
@@ -886,7 +886,7 @@ export default function AdminLeadsPage() {
       <section className="mt-6 rounded-[2rem] border border-[#ded0bf] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-600">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-[#58948f]">
               Coaching Monitor
             </p>
             <h2 className="mt-2 text-2xl font-black">Agent Quality Signals</h2>
@@ -986,7 +986,7 @@ export default function AdminLeadsPage() {
                   <td className="py-4">{metric.contacted_leads}</td>
                   <td className="py-4">{metric.placed_order_conversions}</td>
                   <td className="py-4">{metric.delivered_order_conversions}</td>
-                  <td className="py-4 font-black text-violet-600">{Number(metric.contact_to_order_percent || 0).toFixed(1)}%</td>
+                  <td className="py-4 font-black text-[#58948f]">{Number(metric.contact_to_order_percent || 0).toFixed(1)}%</td>
                   <td className="py-4 font-black">{formatUSD(metric.delivered_revenue)}</td>
                 </tr>
               ))}
@@ -1017,7 +1017,7 @@ export default function AdminLeadsPage() {
                   <td className="py-4"><Badge value={lead.call_permission_status} /></td>
                   <td className="py-4"><Badge value={lead.status} /></td>
                   <td className="py-4"><div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setSelectedLead(lead)} className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-bold hover:bg-zinc-950 hover:text-white dark:border-white/10">Details</button>
+                    <button type="button" onClick={() => setSelectedLead(lead)} className="rounded-full border border-[#cdbba7] px-4 py-2 text-xs font-bold hover:bg-[#093459] hover:text-white dark:border-white/10">Details</button>
                     {!lead.do_not_contact && lead.call_permission_status !== "approved_to_call" && <button type="button" onClick={() => setCallPermission(lead, "approved_to_call")} className="rounded-full bg-green-600 px-4 py-2 text-xs font-bold text-white">Approve Call</button>}
                     {!lead.do_not_contact && lead.call_permission_status === "approved_to_call" && <button type="button" onClick={() => setCallPermission(lead, "not_confirmed")} className="rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-black">Pause Calls</button>}
                     {!lead.do_not_contact && <button type="button" onClick={() => markDoNotContact(lead)} className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white">DNC</button>}
@@ -1039,8 +1039,8 @@ export default function AdminLeadsPage() {
 
 function CreateLeadModal({ form, setForm, agents, customers, saving, onSubmit, onClose }: { form: LeadForm; setForm: React.Dispatch<React.SetStateAction<LeadForm>>; agents: ApprovedAgent[]; customers: CustomerAccount[]; saving: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onClose: () => void; }) {
   return <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"><form onSubmit={onSubmit} className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-7 dark:bg-zinc-950">
-    <button type="button" onClick={onClose} className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-white dark:bg-white dark:text-black">✕</button>
-    <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">New Lead</p><h2 className="mt-3 text-3xl font-black">Create and Assign</h2>
+    <button type="button" onClick={onClose} className="absolute right-5 top-5 rounded-full bg-[#093459] px-3 py-2 text-white dark:bg-white dark:text-black">✕</button>
+    <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">New Lead</p><h2 className="mt-3 text-3xl font-black">Create and Assign</h2>
     <div className="mt-6 grid gap-4 sm:grid-cols-2">
       <Field label="Customer Name" value={form.customer_name} onChange={(v) => setForm((p) => ({...p, customer_name:v}))} required />
       <Field label="Phone" value={form.phone} onChange={(v) => setForm((p) => ({...p, phone:v}))} required />
@@ -1051,14 +1051,14 @@ function CreateLeadModal({ form, setForm, agents, customers, saving, onSubmit, o
       <Select label="Source" value={form.source} onChange={(v) => setForm((p) => ({...p, source:v}))} options={["admin_entry","website_inquiry","existing_customer","referral","other"].map((v) => ({value:v,label:titleCase(v)}))} />
       <Select label="Calling Permission" value={form.call_permission_status} onChange={(v) => setForm((p) => ({...p, call_permission_status:v}))} options={[{value:"not_confirmed",label:"Not Confirmed - Do Not Call"}, {value:"approved_to_call",label:"Approved to Call"}]} />
     </div>
-    <button disabled={saving} className="mt-6 w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black uppercase text-white dark:bg-white dark:text-black">{saving ? "Creating..." : "Create Lead"}</button>
+    <button disabled={saving} className="mt-6 w-full rounded-2xl bg-[#093459] py-4 text-sm font-black uppercase text-white hover:bg-[#58948f] dark:bg-white dark:text-black">{saving ? "Creating..." : "Create Lead"}</button>
   </form></div>;
 }
 
 function ConversionModal({ lead, agentLabel, customerLabel, customers, eligibleOrders, activities, saving, formatUSD, onAttachCustomer, onLinkOrder, onClose }: { lead: Lead; agentLabel: string; customerLabel: string; customers: CustomerAccount[]; eligibleOrders: AttributedOrder[]; activities: Activity[]; saving: boolean; formatUSD: (value: number | null | undefined) => string; onAttachCustomer: (id: string) => void; onLinkOrder: (id: string) => void; onClose: () => void; }) {
   return <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"><div className="relative max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[2rem] bg-white p-7 dark:bg-zinc-950">
-    <button type="button" onClick={onClose} className="absolute right-5 top-5 rounded-full bg-zinc-950 px-3 py-2 text-white dark:bg-white dark:text-black">✕</button>
-    <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-600">Conversion Details</p><h2 className="mt-3 text-3xl font-black">{lead.customer_name}</h2>
+    <button type="button" onClick={onClose} className="absolute right-5 top-5 rounded-full bg-[#093459] px-3 py-2 text-white dark:bg-white dark:text-black">✕</button>
+    <p className="text-xs font-black uppercase tracking-[0.3em] text-[#58948f]">Conversion Details</p><h2 className="mt-3 text-3xl font-black">{lead.customer_name}</h2>
     <div className="mt-6 grid gap-6 lg:grid-cols-2">
       <div className="rounded-3xl bg-[#f8efe4] p-5 dark:bg-white/[0.05]">
         <h3 className="text-xl font-black">Verified Matching</h3>
@@ -1069,7 +1069,7 @@ function ConversionModal({ lead, agentLabel, customerLabel, customers, eligibleO
         <h3 className="text-xl font-black">Eligible Referred Orders</h3>
         <p className="mt-1 text-xs text-[#725f4d] dark:text-gray-400">Link only after verifying this order belongs to this lead.</p>
         <div className="mt-4 space-y-3">
-          {eligibleOrders.length === 0 ? <p className="rounded-2xl bg-[#f8efe4] p-4 text-sm dark:bg-white/[0.05]">No eligible referred orders found.</p> : eligibleOrders.slice(0,8).map((order) => <div key={order.id} className="flex justify-between gap-3 rounded-2xl bg-[#f8efe4] p-4 dark:bg-white/[0.05]"><div><p className="font-black">#{order.id.slice(0,8).toUpperCase()}</p><p className="text-xs text-[#725f4d] dark:text-gray-400">{order.full_name || "Customer"} · {order.status}</p></div><div className="text-right"><p className="font-black">{formatUSD(order.total_amount)}</p>{!lead.converted_order_id && <button type="button" disabled={saving} onClick={() => onLinkOrder(order.id)} className="mt-2 rounded-full bg-violet-600 px-3 py-2 text-xs font-black text-white">Link Order</button>}</div></div>)}
+          {eligibleOrders.length === 0 ? <p className="rounded-2xl bg-[#f8efe4] p-4 text-sm dark:bg-white/[0.05]">No eligible referred orders found.</p> : eligibleOrders.slice(0,8).map((order) => <div key={order.id} className="flex justify-between gap-3 rounded-2xl bg-[#f8efe4] p-4 dark:bg-white/[0.05]"><div><p className="font-black">#{order.id.slice(0,8).toUpperCase()}</p><p className="text-xs text-[#725f4d] dark:text-gray-400">{order.full_name || "Customer"} · {order.status}</p></div><div className="text-right"><p className="font-black">{formatUSD(order.total_amount)}</p>{!lead.converted_order_id && <button type="button" disabled={saving} onClick={() => onLinkOrder(order.id)} className="mt-2 rounded-full bg-[#58948f] px-3 py-2 text-xs font-black text-white">Link Order</button>}</div></div>)}
         </div>
       </div>
     </div>
@@ -1078,11 +1078,10 @@ function ConversionModal({ lead, agentLabel, customerLabel, customers, eligibleO
 }
 
 function titleCase(value: string) { return value.replaceAll("_", " ").split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "); }
-function LoadingCard() { return <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"><div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" /></div>; }
-function StatCard({ label, value, highlight=false, danger=false }: { label:string; value:number|string; highlight?:boolean; danger?:boolean }) { return <div className={`rounded-[2rem] border p-5 ${danger ? "border-red-200 bg-red-50 dark:bg-red-400/10" : highlight ? "border-violet-200 bg-violet-50 dark:bg-violet-400/10" : "border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"}`}><p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#725f4d] dark:text-gray-400">{label}</p><p className="mt-3 text-2xl font-black">{value}</p></div>; }
-function Badge({ value }: { value:string }) { const style = value === "converted" || value === "approved_to_call" ? "bg-green-600" : value === "do_not_contact" || value === "do_not_call" ? "bg-red-600" : value === "interested" || value === "follow_up" ? "bg-violet-600" : "bg-zinc-500"; return <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${style}`}>{titleCase(value)}</span>; }
-function AccessCard({ title, body, href, button, danger=false }: { title:string; body:string; href:string; button:string; danger?:boolean }) { return <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center dark:border-white/10 dark:bg-white/[0.04]"><p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-violet-600"}`}>{danger ? "Access Denied" : "Login Required"}</p><h1 className="mt-4 text-4xl font-black">{title}</h1><p className="mt-4 text-[#725f4d] dark:text-gray-400">{body}</p><Link href={href} className="mt-6 inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-black uppercase text-white dark:bg-white dark:text-black">{button}</Link></section>; }
+function LoadingCard() { return <div className="flex h-72 items-center justify-center rounded-[2rem] border border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"><div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" /></div>; }
+function StatCard({ label, value, highlight=false, danger=false }: { label:string; value:number|string; highlight?:boolean; danger?:boolean }) { return <div className={`rounded-[2rem] border p-5 ${danger ? "border-red-200 bg-red-50 dark:bg-red-400/10" : highlight ? "border-[#58948f]/30 bg-[#58948f]/10 dark:bg-[#58948f]/10" : "border-[#ded0bf] bg-white dark:border-white/10 dark:bg-white/[0.04]"}`}><p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#725f4d] dark:text-gray-400">{label}</p><p className="mt-3 text-2xl font-black">{value}</p></div>; }
+function Badge({ value }: { value:string }) { const style = value === "converted" || value === "approved_to_call" ? "bg-green-600" : value === "do_not_contact" || value === "do_not_call" ? "bg-red-600" : value === "interested" || value === "follow_up" ? "bg-[#58948f]" : "bg-zinc-500"; return <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase text-white ${style}`}>{titleCase(value)}</span>; }
+function AccessCard({ title, body, href, button, danger=false }: { title:string; body:string; href:string; button:string; danger?:boolean }) { return <section className="mx-auto max-w-xl rounded-[2rem] border border-[#ded0bf] bg-white p-8 text-center dark:border-white/10 dark:bg-white/[0.04]"><p className={`text-xs font-black uppercase tracking-[0.3em] ${danger ? "text-red-600" : "text-[#58948f]"}`}>{danger ? "Access Denied" : "Login Required"}</p><h1 className="mt-4 text-4xl font-black">{title}</h1><p className="mt-4 text-[#725f4d] dark:text-gray-400">{body}</p><Link href={href} className="mt-6 inline-block rounded-full bg-[#093459] px-6 py-3 text-sm font-black uppercase text-white hover:bg-[#58948f] dark:bg-white dark:text-black">{button}</Link></section>; }
 function Field({ label, value, onChange, type="text", required=false }: { label:string; value:string; onChange:(v:string)=>void; type?:string; required?:boolean }) { return <div><label className="mb-2 block text-xs font-black uppercase text-[#725f4d]">{label}</label><input required={required} type={type} value={value} onChange={(e) => onChange(e.target.value)} maxLength={254} className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 dark:bg-zinc-900 dark:text-white" /></div>; }
 function Select({ label, value, onChange, options }: { label:string; value:string; onChange:(v:string)=>void; options:{value:string;label:string}[] }) { return <div><label className="mb-2 block text-xs font-black uppercase text-[#725f4d]">{label}</label><select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-2xl border border-[#cdbba7] bg-white px-4 py-3 dark:bg-zinc-900 dark:text-white">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>; }
 function Info({ label, value }: { label:string; value:string }) { return <div><p className="text-xs font-black uppercase tracking-[0.15em] text-[#725f4d]">{label}</p><p className="mt-1 font-bold">{value}</p></div>; }
-

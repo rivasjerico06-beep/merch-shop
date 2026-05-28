@@ -730,12 +730,12 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl bg-black/[0.03] p-5 dark:bg-white/[0.05]">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-gray-400">
+          <div className="rounded-3xl bg-[#58948f] p-5 dark:bg-white/[0.05]">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#ffffff] dark:text-gray-400">
               Order Total
             </p>
             <p className="mt-1 text-3xl font-black">{formatUSD(checkoutTotal)}</p>
-            <p className="text-sm text-zinc-600 dark:text-gray-400">
+            <p className="text-sm text-[#ffffff] dark:text-gray-400">
               {cartCount} item(s)
             </p>
           </div>

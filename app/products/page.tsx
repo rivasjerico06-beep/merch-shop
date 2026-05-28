@@ -425,13 +425,13 @@ export default function ProductsPage() {
           </div>
 
           <div className="rounded-3xl bg-[#58948f] p-5 dark:bg-white/[0.05]">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b5e8e4] dark:text-gray-400">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#ffffff] dark:text-gray-400">
               Showing
             </p>
             <p className="mt-1 text-3xl font-black">
               {filteredProducts.length}
             </p>
-            <p className="text-sm text-[#b5e8e4] dark:text-gray-400">
+            <p className="text-sm text-[#ffffff] dark:text-gray-400">
               of {products.length} products
             </p>
           </div>

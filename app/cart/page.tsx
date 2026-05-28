@@ -234,7 +234,7 @@ export default function CartPage() {
 
   return (
     <AppShell title="Cart" toasts={toasts}>
-      <section className="rounded-[2.5rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-bg-[#58948f] dark:bg-white/[0.04] md:p-8">
+      <section className="rounded-[2.5rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:p-8">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.3em] text-gray-400">
@@ -247,7 +247,7 @@ export default function CartPage() {
           </div>
 
           <div className="rounded-3xl bg-[#58948f] p-5 dark:bg-white/[0.05]">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b5e8e4] dark:text-gray-400">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#ffffff] dark:text-gray-400">
               Cart Total
             </p>
             <p className="mt-1 text-3xl font-black">
@@ -256,7 +256,7 @@ export default function CartPage() {
                 currency: "USD",
               }).format(cartTotal)}
             </p>
-            <p className="text-sm text-[#b5e8e4] dark:text-gray-400">
+            <p className="text-sm text-[#ffffff] dark:text-gray-400">
               {cartCount} bundle(s)
             </p>
           </div>
@@ -293,7 +293,7 @@ export default function CartPage() {
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#58948f] border-t-transparent" />
               </div>
             ) : cartItems.length === 0 ? (
-              <div className="rounded-[2rem] border border-[#ded0bf] bg-white p-10 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="rounded-[2rem] border border-[#58948f] bg-white p-10 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[#58948f]/10 dark:bg-[#58948f]/20">
                  <FontAwesomeIcon
                 icon={faCartShopping}
@@ -414,7 +414,7 @@ export default function CartPage() {
             )}
           </div>
 
-          <aside className="h-fit rounded-[2rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-[#58948f] dark:bg-white/[0.04]">
+          <aside className="h-fit rounded-[2rem] border border-[#58948f] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
             <h2 className="text-2xl font-black">Order Summary</h2>
 
             <div className="mt-5 space-y-3">
